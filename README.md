@@ -25,6 +25,8 @@ Desligado, nada fica consumindo memória: o app também fecha o Docker Desktop.
    - **Idioma** da interface: português, inglês ou chinês (o padrão segue o Windows);
    - **Downloads ao mesmo tempo**, **mínimo de seeds** e **dias de seed** (0 = sem limite em qualquer um;
      com 0 dias o torrent fica em seed para sempre e não sai da lista sozinho);
+   - **Jellyfin** (opcional): endereço e uma chave de API (*Painel do Jellyfin → Chaves de API → +*; o
+     botão **Testar** confere). Com ela, o que terminar de baixar aparece no Jellyfin na hora;
    - **Docker Desktop**: se não estiver instalado, o botão instala pelo `winget` (pede administrador e,
      no fim, um reinício; abra o Docker Desktop uma vez para aceitar os termos).
 3. Clique **Concluir**. Ele sobe tudo e liga os programas entre si sozinho.
@@ -78,6 +80,8 @@ A cada subida ele confere e corrige só o que falta:
   ocupam vaga) e **seed por N dias**, depois o torrent sai da lista;
 - importação por **hardlink** (o arquivo na pasta da série e o do torrent em seed ocupam espaço uma vez só);
 - Prowlarr ligado ao Sonarr e ao Radarr, com **mínimo de seeds** e indexadores sincronizados;
+- com a chave de API do Jellyfin: Sonarr e Radarr avisam o Jellyfin ao importar, renomear ou apagar
+  (a conexão é testada antes de ser gravada; `/data/` é mapeado para a pasta de mídia do Windows);
 - Sonarr e Radarr cadastrados no Seerr (perfil "HD - 720p/1080p"), depois do primeiro login nele;
 - *Allowed Hosts* dos programas, se preenchido, inclui `localhost` e o nome do container.
 

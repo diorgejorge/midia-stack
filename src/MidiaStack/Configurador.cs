@@ -113,6 +113,34 @@ internal sealed class Configurador(Docker docker, Ajustes ajustes, Action<string
             if (novidades.Count > antes) buscar.Add(arr);
         }
 
+        // Aviso ao Jellyfin: falha aqui (chave errada, Jellyfin desligado) não derruba o resto da configuração.
+        var avisos = new List<string>();
+        if (ajustes.JellyfinChave.Length > 0 && !ajustes.JellyfinAplicado)
+        {
+            var todos = true;
+            foreach (var (arr, api) in apis)
+            {
+                try
+                {
+                    if (await GarantirJellyfinNoArrAsync(arr, api))
+                        novidades.Add(T.S($"Jellyfin no {arr.Nome}", $"Jellyfin in {arr.Nome}", $"{arr.Nome} 连接 Jellyfin"));
+                }
+                catch (InvalidOperationException e)
+                {
+                    todos = false;
+                    Log.Escrever($"Jellyfin no {arr.Nome}: {e.Message}");
+                    avisos.Add(T.S($" Não liguei o Jellyfin no {arr.Nome}: {e.Message}",
+                                   $" Could not connect Jellyfin in {arr.Nome}: {e.Message}",
+                                   $"无法在 {arr.Nome} 中连接 Jellyfin：{e.Message}"));
+                }
+            }
+            if (todos)
+            {
+                ajustes.JellyfinAplicado = true;
+                ajustes.Salvar(docker.PastaCompose);
+            }
+        }
+
         if (await GarantirMinimoSeedsAsync(prowlarr))
             novidades.Add(T.S($"mínimo de {ajustes.MinimoSeeds} seeds", $"minimum of {ajustes.MinimoSeeds} seeders", $"最少 {ajustes.MinimoSeeds} 个做种"));
 
@@ -138,11 +166,11 @@ internal sealed class Configurador(Docker docker, Ajustes ajustes, Action<string
                 novidades.Add(T.S("assistente do Seerr concluído", "Seerr setup finished", "Seerr 设置已完成"));
             }
         }
-        var pendente = seerrPronto
+        var pendente = string.Concat(avisos) + (seerrPronto
             ? ""
             : T.S(" Falta só o primeiro login no Seerr (http://localhost:5055) com a sua conta do Jellyfin; depois use \"Conferir configuração\".",
                   " Only the first Seerr login is left (http://localhost:5055) with your Jellyfin account; then use \"Check configuration\".",
-                  "只差用 Jellyfin 账号首次登录 Seerr（http://localhost:5055）；之后请使用“检查配置”。");
+                  "只差用 Jellyfin 账号首次登录 Seerr（http://localhost:5055）；之后请使用“检查配置”。"));
 
         if (novidades.Count == 0)
             return T.S("Tudo no ar e já configurado.", "All running and already configured.", "全部运行中，已配置完成。") + pendente;
@@ -403,6 +431,53 @@ internal sealed class Configurador(Docker docker, Ajustes ajustes, Action<string
         {
             return false; // 403 antes do primeiro login
         }
+    }
+
+    // Eventos em que o Sonarr/Radarr avisam o Jellyfin; cada um só é ligado se aquele programa tiver o evento.
+    private static readonly string[] GatilhosJellyfin =
+    [
+        "onDownload", "onUpgrade", "onImportComplete", "onRename",
+        "onSeriesDelete", "onEpisodeFileDelete", "onEpisodeFileDeleteForUpgrade",
+        "onMovieDelete", "onMovieFileDelete", "onMovieFileDeleteForUpgrade",
+    ];
+
+    /// <summary>
+    /// Conexão "Emby / Jellyfin" no Sonarr/Radarr: ao importar, renomear ou apagar, eles pedem ao Jellyfin que
+    /// atualize a pasta, e o episódio aparece na hora. Com o Jellyfin no mesmo PC, mapeia /data/ (caminho nos
+    /// containers) para a pasta de mídia do Windows, senão o Jellyfin não acha a pasta que deve atualizar.
+    /// </summary>
+    private async Task<bool> GarantirJellyfinNoArrAsync(Arr arr, Api api)
+    {
+        if (ajustes.JellyfinParaContainers is not { } uri) return false;
+
+        var existente = ((JsonArray)(await api.GetAsync("notification"))!)
+            .FirstOrDefault(n => (string?)n?["implementation"] == "MediaBrowser")?.AsObject();
+        var conexao = existente?.DeepClone().AsObject()
+            ?? ((JsonArray)(await api.GetAsync("notification/schema"))!)
+                .First(s => (string?)s?["implementation"] == "MediaBrowser")!.DeepClone().AsObject();
+
+        conexao["name"] = "Jellyfin";
+        DefinirCampo(conexao, "host", uri.Host);
+        DefinirCampo(conexao, "port", uri.Port);
+        DefinirCampo(conexao, "useSsl", uri.Scheme == Uri.UriSchemeHttps);
+        DefinirCampo(conexao, "urlBase", uri.AbsolutePath.TrimEnd('/'));
+        DefinirCampo(conexao, "apiKey", ajustes.JellyfinChave);
+        DefinirCampo(conexao, "updateLibrary", true);
+        DefinirCampo(conexao, "notify", false);
+        if (ajustes.JellyfinLocal)
+        {
+            DefinirCampo(conexao, "mapFrom", "/data/");
+            DefinirCampo(conexao, "mapTo", ajustes.PastaMidia.TrimEnd('\\') + "\\");
+        }
+        foreach (var gatilho in GatilhosJellyfin)
+            if ((bool?)conexao["supports" + gatilho[2..]] == true)
+                conexao[gatilho] = true;
+
+        // Salvar não testa a chave: testa antes, para não gravar uma conexão que não funciona.
+        await api.PostAsync("notification/test", conexao);
+        if (existente == null) await api.PostAsync("notification", conexao);
+        else await api.PutAsync($"notification/{(int)existente["id"]!}", conexao);
+        return true;
     }
 
     /// <summary>Cadastra o Sonarr/Radarr no Seerr como servidor padrão, para os pedidos irem direto para ele.</summary>

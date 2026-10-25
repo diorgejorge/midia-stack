@@ -8,7 +8,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>MidiaStack</AssemblyName>
     <RootNamespace>MidiaStack</RootNamespace>
-    <Version>1.2.0</Version>
+    <Version>1.3.0</Version>
     <!-- Um .exe só, com o .NET dentro: roda numa máquina nova sem instalar nada além do Docker Desktop. -->
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>true</SelfContained>

@@ -25,6 +25,8 @@ When stopped, nothing keeps using memory: the app also closes Docker Desktop.
      the TV shows, movies and downloads subfolders (created if missing);
    - **simultaneous downloads**, **minimum seeders** and **seeding days** (0 = unlimited for any of them;
      with 0 days a torrent seeds forever and is never removed from the list automatically);
+   - **Jellyfin** (optional): address and an API key (*Jellyfin Dashboard → API Keys → +*; the **Test**
+     button checks it). With it, finished downloads show up in Jellyfin right away;
    - **Docker Desktop**: if it is not installed, the button installs it through `winget` (asks for
      administrator rights and, at the end, a restart; open Docker Desktop once to accept its terms).
 3. Click **Finish**. It starts everything and connects the programs to each other on its own.
@@ -78,6 +80,8 @@ On every start it checks and fixes only what is missing:
   slot) and **seeding for N days**, after which the torrent is removed from the list;
 - import by **hardlink** (the file in the show folder and the seeding torrent use disk space only once);
 - Prowlarr connected to Sonarr and Radarr, with the **minimum seeders** and indexers synced;
+- with the Jellyfin API key: Sonarr and Radarr notify Jellyfin on import, rename or delete (the connection
+  is tested before it is saved; `/data/` is mapped to the Windows media folder);
 - Sonarr and Radarr registered in Seerr ("HD - 720p/1080p" profile), after the first sign-in there;
 - the programs' *Allowed Hosts*, if set, include `localhost` and the container name.
 

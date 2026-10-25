@@ -28,6 +28,32 @@ internal sealed class Ajustes
     /// <summary>A dica do plugin BabelSubs aparece uma vez só, depois da primeira subida.</summary>
     public bool DicaBabelSubsMostrada { get; set; }
 
+    /// <summary>Endereço do Jellyfin como visto deste PC (localhost vira host.docker.internal nos containers).</summary>
+    public string JellyfinUrl { get; set; } = "http://localhost:8096";
+
+    /// <summary>Chave de API do Jellyfin (opcional): com ela o Sonarr/Radarr avisam o Jellyfin ao importar.</summary>
+    public string JellyfinChave { get; set; } = "";
+
+    /// <summary>
+    /// A chave já foi gravada no Sonarr/Radarr. Eles devolvem a chave mascarada, então não dá para comparar:
+    /// o assistente zera isto quando a chave ou o endereço mudam, e o configurador regrava.
+    /// </summary>
+    public bool JellyfinAplicado { get; set; }
+
+    /// <summary>Jellyfin no mesmo PC: os containers chegam nele por host.docker.internal.</summary>
+    public bool JellyfinLocal =>
+        Uri.TryCreate(JellyfinUrl, UriKind.Absolute, out var u) && (u.IsLoopback || u.Host == "host.docker.internal");
+
+    /// <summary>Endereço do Jellyfin visto de dentro dos containers.</summary>
+    public Uri? JellyfinParaContainers
+    {
+        get
+        {
+            if (!Uri.TryCreate(JellyfinUrl, UriKind.Absolute, out var u)) return null;
+            return u.IsLoopback ? new UriBuilder(u) { Host = "host.docker.internal" }.Uri : u;
+        }
+    }
+
     public string PastaSeries => Path.Combine(PastaMidia, SubpastaSeries);
     public string PastaFilmes => Path.Combine(PastaMidia, SubpastaFilmes);
     public string PastaDownloads => Path.Combine(PastaMidia, SubpastaDownloads);

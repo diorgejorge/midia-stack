@@ -17,6 +17,9 @@ internal sealed class Assistente : Form
     private readonly NumericUpDown _seeds = new() { Minimum = 0, Maximum = 1000, Width = 70 };
     private readonly NumericUpDown _simultaneos = new() { Minimum = 0, Maximum = 50, Width = 70 };
     private readonly CheckBox _subir = new() { AutoSize = true, Checked = true };
+    private readonly TextBox _jellyfinUrl = new() { Width = 240 };
+    private readonly TextBox _jellyfinChave = new() { Width = 240, UseSystemPasswordChar = true };
+    private readonly Label _jellyfinTeste = new() { AutoSize = true, Margin = new Padding(6, 6, 0, 0) };
     private readonly Label _docker = new() { AutoSize = true };
     private readonly Button _instalarDocker = new() { AutoSize = true };
 
@@ -82,6 +85,8 @@ internal sealed class Assistente : Form
         _dias.Value = Math.Clamp(atuais.DiasDeSeed, 0, 365);
         _seeds.Value = Math.Clamp(atuais.MinimoSeeds, 0, 1000);
         _simultaneos.Value = Math.Clamp(atuais.DownloadsSimultaneos, 0, 50);
+        _jellyfinUrl.Text = atuais.JellyfinUrl;
+        _jellyfinChave.Text = atuais.JellyfinChave;
         _subir.Text = T.S("Subir tudo ao concluir", "Start everything when done", "完成后全部启动");
         _subir.Checked = subir;
         _subir.Visible = primeiraVez;
@@ -152,6 +157,19 @@ internal sealed class Assistente : Form
                                   "之后种子会从列表中移除 · 0 = 永久做种"))));
         Linha(T.S("Fuso horário", "Time zone", "时区"), _fuso);
 
+        Titulo(T.S("Jellyfin (opcional)", "Jellyfin (optional)", "Jellyfin（可选）"));
+        var testar = new Button { Text = T.S("Testar", "Test", "测试"), AutoSize = true };
+        testar.Click += async (_, _) => await TestarJellyfinAsync();
+        Linha(T.S("Endereço", "Address", "地址"), _jellyfinUrl);
+        Linha(T.S("Chave de API", "API key", "API 密钥"), Fluxo(_jellyfinChave, testar, _jellyfinTeste));
+        var dicaJellyfin = Dica(T.S(
+            "Painel do Jellyfin → Chaves de API → +. Com ela, o que terminar de baixar aparece no Jellyfin na hora.",
+            "Jellyfin Dashboard → API Keys → +. With it, finished downloads show up in Jellyfin right away.",
+            "Jellyfin 控制台 → API 密钥 → +。有了它，下载完成的内容会立即出现在 Jellyfin 中。"));
+        dicaJellyfin.Margin = new Padding(0, 0, 0, 0);
+        grade.Controls.Add(new Label { AutoSize = true });
+        grade.Controls.Add(dicaJellyfin);
+
         Titulo("Docker Desktop");
         _instalarDocker.Click += (_, _) => InstalarDocker();
         Linha(T.S("Situação", "Status", "状态"), Fluxo(_docker, _instalarDocker));
@@ -215,6 +233,33 @@ internal sealed class Assistente : Form
         if (r == DialogResult.OK) Docker.InstalarDesktop();
     }
 
+    private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(8) };
+
+    /// <summary>Confere endereço e chave do Jellyfin a partir deste PC (GET /System/Info com a chave).</summary>
+    private async Task TestarJellyfinAsync()
+    {
+        _jellyfinTeste.ForeColor = SystemColors.GrayText;
+        _jellyfinTeste.Text = T.S("testando…", "testing…", "测试中…");
+        try
+        {
+            var req = new HttpRequestMessage(HttpMethod.Get, _jellyfinUrl.Text.Trim().TrimEnd('/') + "/System/Info");
+            req.Headers.Add("X-Emby-Token", _jellyfinChave.Text.Trim());
+            using var r = await Http.SendAsync(req);
+            var ok = r.IsSuccessStatusCode;
+            _jellyfinTeste.ForeColor = ok ? Color.SeaGreen : Color.Firebrick;
+            _jellyfinTeste.Text = ok
+                ? T.S("conectado ✓", "connected ✓", "已连接 ✓")
+                : (int)r.StatusCode == 401
+                    ? T.S("chave inválida", "invalid key", "密钥无效")
+                    : $"HTTP {(int)r.StatusCode}";
+        }
+        catch (Exception e) when (e is HttpRequestException or TaskCanceledException or UriFormatException or InvalidOperationException)
+        {
+            _jellyfinTeste.ForeColor = Color.Firebrick;
+            _jellyfinTeste.Text = T.S("não respondeu", "no response", "无响应");
+        }
+    }
+
     private Ajustes LerCampos() => new()
     {
         Idioma = T.Atual,
@@ -227,6 +272,12 @@ internal sealed class Assistente : Form
         MinimoSeeds = (int)_seeds.Value,
         DownloadsSimultaneos = (int)_simultaneos.Value,
         DicaBabelSubsMostrada = Resultado.DicaBabelSubsMostrada,
+        JellyfinUrl = _jellyfinUrl.Text.Trim().TrimEnd('/'),
+        JellyfinChave = _jellyfinChave.Text.Trim(),
+        // Mudou endereço ou chave: o configurador precisa regravar no Sonarr/Radarr.
+        JellyfinAplicado = Resultado.JellyfinAplicado
+            && Resultado.JellyfinUrl == _jellyfinUrl.Text.Trim().TrimEnd('/')
+            && Resultado.JellyfinChave == _jellyfinChave.Text.Trim(),
     };
 
     private void Concluir()
@@ -246,6 +297,10 @@ internal sealed class Assistente : Form
             erro = T.S("Séries, filmes e downloads precisam ser subpastas diferentes.",
                        "TV shows, movies and downloads must be different subfolders.",
                        "剧集、电影和下载必须是不同的子文件夹。");
+        else if (a.JellyfinChave.Length > 0 && a.JellyfinParaContainers == null)
+            erro = T.S("Endereço do Jellyfin inválido (ex.: http://localhost:8096).",
+                       "Invalid Jellyfin address (e.g. http://localhost:8096).",
+                       "Jellyfin 地址无效（例如 http://localhost:8096）。");
         else if (a.FusoHorario.Length == 0)
             erro = T.S("Informe o fuso horário (ex.: America/Sao_Paulo).",
                        "Enter the time zone (e.g. America/New_York).",

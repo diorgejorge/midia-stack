@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>MidiaStack</AssemblyName>
+    <RootNamespace>MidiaStack</RootNamespace>
+    <Version>1.0.0</Version>
+    <!-- Um .exe só, com o .NET dentro: roda numa máquina nova sem instalar nada além do Docker Desktop. -->
+    <PublishSingleFile>true</PublishSingleFile>
+    <SelfContained>true</SelfContained>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- O compose vai dentro do .exe; o app grava uma cópia na pasta dele (Ajustes.PrepararPasta). -->
+    <EmbeddedResource Include="..\..\docker-compose.yml" LogicalName="docker-compose.yml" />
+  </ItemGroup>
+
+</Project>

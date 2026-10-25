@@ -1,0 +1,12 @@
+# Gerados pelo app em cada máquina (caminhos, chaves de API, bancos dos programas)
+config/
+.env
+midia-stack.json
+*.log
+
+# Binários: o .exe vai nas releases do GitHub
+MidiaStack.exe
+bin/
+obj/
+bin-publish/
+publish/

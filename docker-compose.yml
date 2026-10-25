@@ -1,0 +1,92 @@
+# Pilha de mídia sob demanda: qBittorrent + Prowlarr + Sonarr + Radarr + Seerr.
+# Ligada e desligada pelo MidiaStack.exe (ou: docker compose up -d / docker compose down).
+#
+# Este arquivo vai embutido no MidiaStack.exe, que grava uma cópia na pasta dele junto com o .env
+# (PASTA_MIDIA e TZ, respondidos no assistente da primeira execução).
+#
+# PASTA_MIDIA é montada como /data nos containers que mexem em arquivos:
+#   /data/<downloads>  -> onde o qBittorrent baixa
+#   /data/<series>     -> onde o Sonarr organiza os episódios (biblioteca do Jellyfin)
+#   /data/<filmes>     -> onde o Radarr organiza os filmes (biblioteca do Jellyfin)
+# Mesmo ponto de montagem = Sonarr/Radarr usam hardlink em vez de copiar.
+#
+# Rede com IPs fixos para Sonarr e Radarr: o qBittorrent libera só esses IPs sem senha
+# (o navegador, que chega pelo gateway 172.30.50.1, continua pedindo login).
+#
+# Seerr (antigo Jellyseerr): catálogo para pedir séries e filmes; manda os pedidos ao Sonarr/Radarr.
+name: midia-stack
+
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 172.30.50.0/24
+
+services:
+  qbittorrent:
+    image: lscr.io/linuxserver/qbittorrent:latest
+    container_name: qbittorrent
+    environment:
+      - TZ=${TZ:-America/Sao_Paulo}
+      - WEBUI_PORT=8080
+    volumes:
+      - ./config/qbittorrent:/config
+      - ${PASTA_MIDIA:?defina PASTA_MIDIA no .env}:/data
+    ports:
+      - "8080:8080"
+      - "6881:6881"
+      - "6881:6881/udp"
+    restart: "no"
+
+  prowlarr:
+    image: lscr.io/linuxserver/prowlarr:latest
+    container_name: prowlarr
+    environment:
+      - TZ=${TZ:-America/Sao_Paulo}
+    volumes:
+      - ./config/prowlarr:/config
+    ports:
+      - "9696:9696"
+    restart: "no"
+
+  sonarr:
+    image: lscr.io/linuxserver/sonarr:latest
+    container_name: sonarr
+    environment:
+      - TZ=${TZ:-America/Sao_Paulo}
+    volumes:
+      - ./config/sonarr:/config
+      - ${PASTA_MIDIA:?defina PASTA_MIDIA no .env}:/data
+    networks:
+      default:
+        ipv4_address: 172.30.50.10
+    ports:
+      - "8989:8989"
+    restart: "no"
+
+  radarr:
+    image: lscr.io/linuxserver/radarr:latest
+    container_name: radarr
+    environment:
+      - TZ=${TZ:-America/Sao_Paulo}
+    volumes:
+      - ./config/radarr:/config
+      - ${PASTA_MIDIA:?defina PASTA_MIDIA no .env}:/data
+    networks:
+      default:
+        ipv4_address: 172.30.50.11
+    ports:
+      - "7878:7878"
+    restart: "no"
+
+  seerr:
+    image: ghcr.io/seerr-team/seerr:latest
+    container_name: seerr
+    init: true
+    environment:
+      - TZ=${TZ:-America/Sao_Paulo}
+    volumes:
+      - ./config/seerr:/app/config
+    ports:
+      - "5055:5055"
+    restart: "no"

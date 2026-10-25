@@ -124,6 +124,79 @@ Sonarr 和 Radarr 仍然无需密码登录（白名单 IP）。
 | `config\` | 各程序的设置和数据库 — 换电脑时**一起带走**，即可保留索引器、历史记录和请求 |
 | `midia-stack.log` | 程序执行记录（不含密码） |
 
+## Linux（树莓派、迷你主机、服务器）
+
+`MidiaStack.exe` 仅适用于 Windows。在 Linux 上，同一套程序直接用 Docker Compose 运行 —— 在常开设备上会随开机自动启动。镜像提供 ARM64 版本（树莓派 4/5）。
+
+**1. Docker**（官方脚本；之后注销并重新登录）：
+
+```bash
+curl -fsSL https://get.docker.com | sh
+```
+
+```bash
+sudo usermod -aG docker $USER
+```
+
+**2. 程序文件夹和文件：**
+
+```bash
+mkdir -p ~/midia-stack && cd ~/midia-stack
+```
+
+```bash
+curl -fsSLO https://raw.githubusercontent.com/diorgejorge/midia-stack/main/docker-compose.yml
+```
+
+```bash
+curl -fsSL -o docker-compose.override.yml https://raw.githubusercontent.com/diorgejorge/midia-stack/main/linux/docker-compose.override.yml
+```
+
+```bash
+curl -fsSL -o .env https://raw.githubusercontent.com/diorgejorge/midia-stack/main/linux/.env.example
+```
+
+[`docker-compose.override.yml`](linux/docker-compose.override.yml) 补充了 Linux 所需的内容：文件所有者（PUID/PGID）、指向服务器本身的 `host.docker.internal`，以及 `restart: unless-stopped`。
+
+**3. 编辑 `.env`**（`nano .env`）：`PASTA_MIDIA`（例如 `/srv/media`）、`PUID`/`PGID`（`id` 命令的输出）和 `TZ`。创建文件夹（此处使用英文名称 —— 在 Sonarr/Radarr 中使用相同名称）：
+
+```bash
+mkdir -p /srv/media/tv /srv/media/movies /srv/media/downloads
+```
+
+**4. 启动、停止、更新：**
+
+```bash
+docker compose up -d
+```
+
+```bash
+docker compose down
+```
+
+```bash
+docker compose pull && docker compose up -d
+```
+
+**5. 配置** —— 在 Windows 上由 `.exe` 连接各程序；在 Linux 上有两种方式：
+
+- **沿用 Windows 的配置（最简单）：** 在 Windows 上停止程序，把 `config\` 文件夹复制到 `~/midia-stack/config`。索引器、连接、历史记录和请求都会一起迁移。只需在 Sonarr 和 Radarr 中把 *Settings → Connect → Jellyfin → Map Paths To* 改为 Jellyfin 在 Linux 上看到的媒体文件夹（例如 `/srv/media/`）。子文件夹名称必须与 Windows 上使用的一致。
+- **从零开始：** 手动完成 `.exe` 自动做的事情，另外参考[首次配置步骤](#首次配置步骤)：
+
+| 程序 | 位置 | 内容 |
+|---|---|---|
+| qBittorrent | *选项 → Web UI* | “对白名单 IP 子网中的客户端跳过身份验证”：`172.30.50.10/32, 172.30.50.11/32` |
+| qBittorrent | *选项 → 下载 / 连接 / BitTorrent* | 默认路径 `/data/downloads`，端口 `6881`，队列和做种限制（例如 7 天后停止） |
+| Sonarr | *Settings → Media Management* | Root Folder `/data/tv` |
+| Sonarr | *Settings → Download Clients* | qBittorrent：主机 `qbittorrent`，端口 `8080`，分类 `tv-sonarr` |
+| Radarr | 同上 | Root Folder `/data/movies`，分类 `radarr` |
+| Prowlarr | *Settings → Apps* | Sonarr（`http://prowlarr:9696`、`http://sonarr:8989`、Sonarr 的 API 密钥）和 Radarr（`http://radarr:7878`） |
+| Prowlarr | *Settings → Apps → Sync Profiles* | 最少做种数 |
+| Sonarr / Radarr | *Settings → Connect → Emby / Jellyfin* | 主机 `host.docker.internal`，端口 `8096`，API 密钥，Update Library；Map Paths `/data/` → Jellyfin 的媒体文件夹 |
+
+如果你的用户 ID 不是 1000，Seerr（以 1000 运行）需要拥有它的文件夹：
+`mkdir -p config/seerr && sudo chown 1000:1000 config/seerr`。
+
 ## 编译
 
 需要 .NET 10 SDK。

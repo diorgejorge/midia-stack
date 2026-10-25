@@ -1,0 +1,42 @@
+# Ajustes para rodar no Linux (Raspberry Pi, mini PC, servidor) — copie para a mesma pasta do
+# docker-compose.yml. O Docker Compose junta os dois arquivos sozinho.
+#
+# - PUID/PGID: usuário dono da pasta de mídia (veja com `id`), para os arquivos baixados não ficarem
+#   como root e o Jellyfin conseguir lê-los;
+# - host.docker.internal: no Linux ele não existe por padrão; aponta para o próprio servidor, onde
+#   roda o Jellyfin;
+# - restart: unless-stopped: num aparelho sempre ligado, tudo sobe sozinho quando ele liga.
+
+x-linuxserver: &linuxserver
+  environment:
+    - PUID=${PUID:-1000}
+    - PGID=${PGID:-1000}
+    - TZ=${TZ:-America/Sao_Paulo}
+  restart: unless-stopped
+
+services:
+  qbittorrent:
+    <<: *linuxserver
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - TZ=${TZ:-America/Sao_Paulo}
+      - WEBUI_PORT=8080
+
+  prowlarr:
+    <<: *linuxserver
+
+  sonarr:
+    <<: *linuxserver
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  radarr:
+    <<: *linuxserver
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  seerr:
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

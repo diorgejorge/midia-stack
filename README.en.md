@@ -146,6 +146,85 @@ Force the language when opening: `MidiaStack.exe --idioma pt|en|zh`.
 | `config\` | settings and databases of the programs — **take this folder along** when moving to another machine to keep indexers, history and requests |
 | `midia-stack.log` | log of what the app ran (no passwords) |
 
+## Linux (Raspberry Pi, mini PC, server)
+
+`MidiaStack.exe` is Windows-only. On Linux the same stack runs straight with Docker Compose — on an always-on
+device it starts by itself at boot. The images have ARM64 builds (Raspberry Pi 4/5).
+
+**1. Docker** (official script; then log out and back in):
+
+```bash
+curl -fsSL https://get.docker.com | sh
+```
+
+```bash
+sudo usermod -aG docker $USER
+```
+
+**2. Stack folder and files:**
+
+```bash
+mkdir -p ~/midia-stack && cd ~/midia-stack
+```
+
+```bash
+curl -fsSLO https://raw.githubusercontent.com/diorgejorge/midia-stack/main/docker-compose.yml
+```
+
+```bash
+curl -fsSL -o docker-compose.override.yml https://raw.githubusercontent.com/diorgejorge/midia-stack/main/linux/docker-compose.override.yml
+```
+
+```bash
+curl -fsSL -o .env https://raw.githubusercontent.com/diorgejorge/midia-stack/main/linux/.env.example
+```
+
+[`docker-compose.override.yml`](linux/docker-compose.override.yml) adds what Linux needs: file owner
+(PUID/PGID), `host.docker.internal` pointing to the server itself, and `restart: unless-stopped`.
+
+**3. Edit `.env`** (`nano .env`): `PASTA_MIDIA` (e.g. `/srv/media`), `PUID`/`PGID` (output of the `id`
+command) and `TZ`. Create the folders (here with English names — use the same names in Sonarr/Radarr):
+
+```bash
+mkdir -p /srv/media/tv /srv/media/movies /srv/media/downloads
+```
+
+**4. Start, stop, update:**
+
+```bash
+docker compose up -d
+```
+
+```bash
+docker compose down
+```
+
+```bash
+docker compose pull && docker compose up -d
+```
+
+**5. Configuration** — on Windows the `.exe` connects the programs; on Linux there are two ways:
+
+- **Bring the Windows configuration (easiest):** stop the stack on Windows and copy the `config\` folder to
+  `~/midia-stack/config`. Indexers, connections, history and requests come along. Just change, in Sonarr
+  and Radarr, *Settings → Connect → Jellyfin → Map Paths To* to the media folder as Jellyfin sees it on
+  Linux (e.g. `/srv/media/`). The subfolder names must match the ones used on Windows.
+- **From scratch:** do by hand what the `.exe` does on its own, plus the [step by step](#first-time-setup-step-by-step):
+
+| Program | Where | What |
+|---|---|---|
+| qBittorrent | *Options → Web UI* | "Bypass authentication for clients in whitelisted IP subnets": `172.30.50.10/32, 172.30.50.11/32` |
+| qBittorrent | *Options → Downloads / Connection / BitTorrent* | default path `/data/downloads`, port `6881`, queue and seeding limit (e.g. 7 days, then stop) |
+| Sonarr | *Settings → Media Management* | Root Folder `/data/tv` |
+| Sonarr | *Settings → Download Clients* | qBittorrent: host `qbittorrent`, port `8080`, category `tv-sonarr` |
+| Radarr | the same | Root Folder `/data/movies`, category `radarr` |
+| Prowlarr | *Settings → Apps* | Sonarr (`http://prowlarr:9696`, `http://sonarr:8989`, Sonarr API key) and Radarr (`http://radarr:7878`) |
+| Prowlarr | *Settings → Apps → Sync Profiles* | minimum seeders |
+| Sonarr / Radarr | *Settings → Connect → Emby / Jellyfin* | host `host.docker.internal`, port `8096`, API key, Update Library; Map Paths `/data/` → Jellyfin's media folder |
+
+If your user is not 1000, Seerr (which runs as 1000) needs its folder:
+`mkdir -p config/seerr && sudo chown 1000:1000 config/seerr`.
+
 ## Building
 
 Requires the .NET 10 SDK.

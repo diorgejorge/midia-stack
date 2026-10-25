@@ -146,6 +146,86 @@ Forçar o idioma ao abrir: `MidiaStack.exe --idioma pt|en|zh`.
 | `config\` | configurações e bancos dos programas — **leve esta pasta junto** ao trocar de máquina para manter indexadores, histórico e pedidos |
 | `midia-stack.log` | registro do que o app executou (sem senhas) |
 
+## Linux (Raspberry Pi, mini PC, servidor)
+
+O `MidiaStack.exe` é só para Windows. No Linux a mesma pilha roda direto com Docker Compose — num aparelho
+sempre ligado, sobe sozinha quando ele liga. As imagens têm versão ARM64 (Raspberry Pi 4/5).
+
+**1. Docker** (script oficial; depois saia e entre de novo na sessão):
+
+```bash
+curl -fsSL https://get.docker.com | sh
+```
+
+```bash
+sudo usermod -aG docker $USER
+```
+
+**2. Pasta da pilha e arquivos:**
+
+```bash
+mkdir -p ~/midia-stack && cd ~/midia-stack
+```
+
+```bash
+curl -fsSLO https://raw.githubusercontent.com/diorgejorge/midia-stack/main/docker-compose.yml
+```
+
+```bash
+curl -fsSL -o docker-compose.override.yml https://raw.githubusercontent.com/diorgejorge/midia-stack/main/linux/docker-compose.override.yml
+```
+
+```bash
+curl -fsSL -o .env https://raw.githubusercontent.com/diorgejorge/midia-stack/main/linux/.env.example
+```
+
+O [`docker-compose.override.yml`](linux/docker-compose.override.yml) acrescenta o que o Linux precisa:
+usuário dos arquivos (PUID/PGID), `host.docker.internal` apontando para o próprio servidor e
+`restart: unless-stopped`.
+
+**3. Ajuste o `.env`** (`nano .env`): `PASTA_MIDIA` (ex.: `/srv/midia`), `PUID`/`PGID` (saída do comando
+`id`) e `TZ`. Crie as pastas:
+
+```bash
+mkdir -p /srv/midia/series /srv/midia/filmes /srv/midia/downloads
+```
+
+**4. Subir, parar, atualizar:**
+
+```bash
+docker compose up -d
+```
+
+```bash
+docker compose down
+```
+
+```bash
+docker compose pull && docker compose up -d
+```
+
+**5. Configuração** — no Windows quem liga os programas é o `.exe`; no Linux há dois caminhos:
+
+- **Levar a configuração do Windows (mais fácil):** pare a pilha no Windows e copie a pasta `config\`
+  para `~/midia-stack/config`. Indexadores, ligações, histórico e pedidos vão junto. Só ajuste, no Sonarr e
+  no Radarr, *Settings → Connect → Jellyfin → Map Paths To* para a pasta de mídia como o Jellyfin a vê no
+  Linux (ex.: `/srv/midia/`).
+- **Do zero:** faça à mão o que o `.exe` faz sozinho, além do [passo a passo](#primeira-configuração-passo-a-passo):
+
+| Programa | Onde | O quê |
+|---|---|---|
+| qBittorrent | *Opções → Web UI* | "Ignorar autenticação para clientes nas sub-redes": `172.30.50.10/32, 172.30.50.11/32` |
+| qBittorrent | *Opções → Downloads / Conexão / BitTorrent* | pasta padrão `/data/downloads`, porta `6881`, fila e limite de seed (ex.: 7 dias, depois parar) |
+| Sonarr | *Settings → Media Management* | Root Folder `/data/series` |
+| Sonarr | *Settings → Download Clients* | qBittorrent: host `qbittorrent`, porta `8080`, categoria `tv-sonarr` |
+| Radarr | o mesmo | Root Folder `/data/filmes`, categoria `radarr` |
+| Prowlarr | *Settings → Apps* | Sonarr (`http://prowlarr:9696`, `http://sonarr:8989`, API key do Sonarr) e Radarr (`http://radarr:7878`) |
+| Prowlarr | *Settings → Apps → Sync Profiles* | mínimo de seeds |
+| Sonarr / Radarr | *Settings → Connect → Emby / Jellyfin* | host `host.docker.internal`, porta `8096`, API key, Update Library; Map Paths `/data/` → pasta de mídia do Jellyfin |
+
+Se o seu usuário não for o 1000, o Seerr (que roda como 1000) precisa da pasta dele:
+`mkdir -p config/seerr && sudo chown 1000:1000 config/seerr`.
+
 ## Compilar
 
 Requer o SDK do .NET 10.

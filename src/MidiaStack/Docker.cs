@@ -62,8 +62,8 @@ internal sealed class Docker(string pastaCompose)
     public Task<(int Codigo, string Saida)> ComposeAsync(string args, CancellationToken ct = default) =>
         RodarAsync("compose " + args, ct);
 
-    public Task<(int Codigo, string Saida)> ExecAsync(string container, string args) =>
-        RodarAsync($"exec {container} {args}");
+    public Task<(int Codigo, string Saida)> ExecAsync(string container, string args, bool registrar = true) =>
+        RodarAsync($"exec {container} {args}", registrar: registrar);
 
     /// <summary>Fecha o Docker Desktop para devolver a memória da VM do WSL.</summary>
     public async Task FecharDesktopAsync()

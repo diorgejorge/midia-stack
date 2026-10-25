@@ -115,7 +115,7 @@ internal sealed class Configurador(Docker docker, Ajustes ajustes, Action<string
 
         // Aviso ao Jellyfin: falha aqui (chave errada, Jellyfin desligado) não derruba o resto da configuração.
         var avisos = new List<string>();
-        if (ajustes.JellyfinChave.Length > 0 && !ajustes.JellyfinAplicado)
+        if (ajustes.JellyfinChave.Length > 0 && (!ajustes.JellyfinAplicado || !await JellyfinComEventosAsync(apis.Values)))
         {
             var todos = true;
             foreach (var (arr, api) in apis)
@@ -335,7 +335,8 @@ internal sealed class Configurador(Docker docker, Ajustes ajustes, Action<string
             desejado["max_ratio_act"] = 0;
         }
 
-        var (codigo, saida) = await docker.ExecAsync(Sonarr.Container, $"curl -s -m 10 {url}/preferences");
+        // Sem registrar a saída: é a lista inteira de preferências e encheria o log a cada subida.
+        var (codigo, saida) = await docker.ExecAsync(Sonarr.Container, $"curl -s -m 10 {url}/preferences", registrar: false);
         if (codigo != 0)
             throw new InvalidOperationException(T.S("qBittorrent não respondeu: ", "qBittorrent did not respond: ", "qBittorrent 没有响应：") + UltimaLinha(saida));
         var atual = JsonNode.Parse(saida)!;
@@ -441,6 +442,18 @@ internal sealed class Configurador(Docker docker, Ajustes ajustes, Action<string
         "onMovieDelete", "onMovieFileDelete", "onMovieFileDeleteForUpgrade",
     ];
 
+    /// <summary>A conexão com o Jellyfin existe nos dois e avisa ao importar (versões antigas gravavam sem eventos).</summary>
+    private static async Task<bool> JellyfinComEventosAsync(IEnumerable<Api> apis)
+    {
+        foreach (var api in apis)
+        {
+            var conexao = ((JsonArray)(await api.GetAsync("notification"))!)
+                .FirstOrDefault(n => (string?)n?["implementation"] == "MediaBrowser");
+            if ((bool?)conexao?["onDownload"] != true) return false;
+        }
+        return true;
+    }
+
     /// <summary>
     /// Conexão "Emby / Jellyfin" no Sonarr/Radarr: ao importar, renomear ou apagar, eles pedem ao Jellyfin que
     /// atualize a pasta, e o episódio aparece na hora. Com o Jellyfin no mesmo PC, mapeia /data/ (caminho nos
@@ -469,8 +482,9 @@ internal sealed class Configurador(Docker docker, Ajustes ajustes, Action<string
             DefinirCampo(conexao, "mapFrom", "/data/");
             DefinirCampo(conexao, "mapTo", ajustes.PastaMidia.TrimEnd('\\') + "\\");
         }
+        // "onDownload" ↔ "supportsOnDownload".
         foreach (var gatilho in GatilhosJellyfin)
-            if ((bool?)conexao["supports" + gatilho[2..]] == true)
+            if ((bool?)conexao["supports" + char.ToUpper(gatilho[0]) + gatilho[1..]] == true)
                 conexao[gatilho] = true;
 
         // Salvar não testa a chave: testa antes, para não gravar uma conexão que não funciona.

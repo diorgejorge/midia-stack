@@ -235,7 +235,10 @@ internal sealed class Assistente : Form
 
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(8) };
 
-    /// <summary>Confere endereço e chave do Jellyfin a partir deste PC (GET /System/Info com a chave).</summary>
+    /// <summary>
+    /// Confere endereço e chave do Jellyfin a partir deste PC (GET /System/Info com a chave). Usa o cabeçalho
+    /// Authorization: o Jellyfin novo vem com EnableLegacyAuthorization=false e recusa o X-Emby-Token antigo.
+    /// </summary>
     private async Task TestarJellyfinAsync()
     {
         _jellyfinTeste.ForeColor = SystemColors.GrayText;
@@ -243,7 +246,7 @@ internal sealed class Assistente : Form
         try
         {
             var req = new HttpRequestMessage(HttpMethod.Get, _jellyfinUrl.Text.Trim().TrimEnd('/') + "/System/Info");
-            req.Headers.Add("X-Emby-Token", _jellyfinChave.Text.Trim());
+            req.Headers.TryAddWithoutValidation("Authorization", $"MediaBrowser Token=\"{_jellyfinChave.Text.Trim()}\"");
             using var r = await Http.SendAsync(req);
             var ok = r.IsSuccessStatusCode;
             _jellyfinTeste.ForeColor = ok ? Color.SeaGreen : Color.Firebrick;

@@ -25,6 +25,9 @@ internal sealed class Ajustes
     public int MinimoSeeds { get; set; } = 10;
     public int DownloadsSimultaneos { get; set; } = 8;
 
+    /// <summary>A dica do plugin BabelSubs aparece uma vez só, depois da primeira subida.</summary>
+    public bool DicaBabelSubsMostrada { get; set; }
+
     public string PastaSeries => Path.Combine(PastaMidia, SubpastaSeries);
     public string PastaFilmes => Path.Combine(PastaMidia, SubpastaFilmes);
     public string PastaDownloads => Path.Combine(PastaMidia, SubpastaDownloads);

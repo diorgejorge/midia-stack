@@ -33,6 +33,7 @@ internal sealed class TrayApp : ApplicationContext
     private readonly Icon _amarelo = Bolinha(Color.FromArgb(210, 153, 34));
     private readonly Icon _cinza = Bolinha(Color.FromArgb(130, 130, 130));
     private bool _ocupado;
+    private bool _dicaBabelSubsNaTela;
 
     public TrayApp(string pastaApp, Ajustes ajustes, bool subirAoIniciar)
     {
@@ -55,6 +56,11 @@ internal sealed class TrayApp : ApplicationContext
                     System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)?.Invoke(_icone, null);
         };
         _icone.DoubleClick += (_, _) => AbrirUrl("http://localhost:5055");
+        _icone.BalloonTipClicked += (_, _) =>
+        {
+            if (_dicaBabelSubsNaTela) BabelSubs.Mostrar();
+        };
+        _icone.BalloonTipClosed += (_, _) => _dicaBabelSubsNaTela = false;
 
         _timer = new System.Windows.Forms.Timer { Interval = 5000 };
         _timer.Tick += async (_, _) => await AtualizarStatusAsync();
@@ -95,6 +101,8 @@ internal sealed class TrayApp : ApplicationContext
         [
             new ToolStripSeparator(),
             new ToolStripMenuItem(T.S("Senha do qBittorrent", "qBittorrent password", "qBittorrent 密码"), null, async (_, _) => await MostrarSenhaQbitAsync()),
+            new ToolStripMenuItem(T.S("Legendas automáticas (BabelSubs)…", "Automatic subtitles (BabelSubs)…", "自动字幕（BabelSubs）…"),
+                null, (_, _) => BabelSubs.Mostrar()),
             new ToolStripMenuItem(T.S("Abrir pasta de downloads", "Open downloads folder", "打开下载文件夹"), null, (_, _) => AbrirUrl(_ajustes.PastaDownloads)),
             new ToolStripMenuItem(T.S($"Abrir pasta do {T.App}", $"Open {T.App} folder", $"打开 {T.App} 文件夹"), null, (_, _) => AbrirUrl(_docker.PastaCompose)),
             new ToolStripMenuItem(T.S("Ver log", "View log", "查看日志"), null, (_, _) => AbrirLog()),
@@ -164,7 +172,26 @@ internal sealed class TrayApp : ApplicationContext
             }
             Avisar(ok ? T.S("Tudo no ar", "All running", "全部运行中") : T.S("Problema ao subir", "Problem starting", "启动出错"),
                 mensagem, ok ? ToolTipIcon.Info : ToolTipIcon.Error);
+            if (ok) _ = DicaBabelSubsAsync();
         });
+    }
+
+    /// <summary>Uma vez só, depois da primeira subida: sugere o BabelSubs se ele não estiver no Jellyfin.</summary>
+    private async Task DicaBabelSubsAsync()
+    {
+        if (_ajustes.DicaBabelSubsMostrada) return;
+        _ajustes.DicaBabelSubsMostrada = true;
+        _ajustes.Salvar(_docker.PastaCompose);
+        if (BabelSubs.Instalado) return;
+
+        await Task.Delay(TimeSpan.FromSeconds(8)); // depois do aviso de "Tudo no ar"
+        _dicaBabelSubsNaTela = true;
+        _icone.ShowBalloonTip(15000,
+            T.S("Dica: legendas automáticas", "Tip: automatic subtitles", "提示：自动字幕"),
+            T.S("O plugin BabelSubs baixa ou traduz legendas no seu idioma ao dar play no Jellyfin. Clique para ver como instalar.",
+                "The BabelSubs plugin downloads or translates subtitles in your language when you press play in Jellyfin. Click to see how to install it.",
+                "BabelSubs 插件会在 Jellyfin 播放时下载或翻译你所用语言的字幕。点击查看安装方法。"),
+            ToolTipIcon.Info);
     }
 
     private async Task MostrarSenhaQbitAsync()

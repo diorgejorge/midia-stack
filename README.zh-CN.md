@@ -30,6 +30,14 @@
 - **索引器**：在 Prowlarr 中，*Indexers → Add Indexer*（保存前先点 **Test**）。它们会自动同步到 Sonarr 和 Radarr。
 - **Seerr**：打开 http://localhost:5055，选择 **Jellyfin**，地址填 `host.docker.internal`，端口 `8096`（不要加 `http://`，不要用 `localhost`），用你的 Jellyfin 账号登录。然后在图标菜单中点击**检查配置**：它会把 Seerr 连接到 Sonarr 和 Radarr。
 
+## 推荐：用 BabelSubs 自动获取字幕
+
+[BabelSubs](https://github.com/diorgejorge/jellyfin-plugin-babelsubs) 是一个 Jellyfin 插件：当视频开始播放却没有你所用语言的字幕时，它会翻译视频自带的英文字幕，或从已安装的字幕提供方（如 OpenSubtitles）下载最佳字幕，并在播放器中自动开启。它与 Media Stack 很搭配，因为很多资源只带英文字幕。
+
+在 Jellyfin 中（管理员账号）：*控制台 → 插件 → 存储库 → +*，粘贴
+`https://raw.githubusercontent.com/diorgejorge/jellyfin-plugin-babelsubs/main/manifest.json`，然后
+*目录 → BabelSubs → 安装*，并重启 Jellyfin。菜单中的**自动字幕（BabelSubs）…**会复制该地址并打开这个页面；如果尚未安装，程序也会在首次启动后提示一次。
+
 ## 使用
 
 点击图标：

@@ -37,6 +37,19 @@ Depois, duas coisas que só você pode fazer, uma vez:
   `8096` (sem `http://`, sem `localhost`), e entre com seu usuário do Jellyfin. Depois clique
   **Conferir configuração** no menu do ícone: ele liga o Seerr ao Sonarr e ao Radarr.
 
+## Sugestão: legendas automáticas com o BabelSubs
+
+O [BabelSubs](https://github.com/diorgejorge/jellyfin-plugin-babelsubs) é um plugin para o Jellyfin: quando um
+vídeo começa sem legenda no seu idioma, ele traduz a legenda em inglês do próprio vídeo ou baixa a melhor dos
+provedores instalados (ex.: OpenSubtitles), e já liga no player. Combina com o Mídia Stack, que traz muitos
+lançamentos só com legenda em inglês.
+
+No Jellyfin (conta de administrador): *Painel → Plugins → Repositórios → +*, cole
+`https://raw.githubusercontent.com/diorgejorge/jellyfin-plugin-babelsubs/main/manifest.json`, depois
+*Catálogo → BabelSubs → Instalar* e reinicie o Jellyfin. O item **Legendas automáticas (BabelSubs)…** do menu
+copia o endereço e abre essa página; se ele ainda não estiver instalado, o app também dá a dica uma vez,
+depois da primeira subida.
+
 ## Uso
 
 Clique no ícone:

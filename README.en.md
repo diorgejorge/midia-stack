@@ -37,6 +37,19 @@ After that, two things only you can do, once:
   (no `http://`, no `localhost`), and sign in with your Jellyfin user. Then click **Check configuration**
   in the icon menu: it connects Seerr to Sonarr and Radarr.
 
+## Suggestion: automatic subtitles with BabelSubs
+
+[BabelSubs](https://github.com/diorgejorge/jellyfin-plugin-babelsubs) is a Jellyfin plugin: when a video starts
+without a subtitle in your language, it translates the video's own English subtitle or downloads the best one
+from the installed providers (e.g. OpenSubtitles), and turns it on in the player. It pairs well with Media
+Stack, since many releases only come with English subtitles.
+
+In Jellyfin (administrator account): *Dashboard → Plugins → Repositories → +*, paste
+`https://raw.githubusercontent.com/diorgejorge/jellyfin-plugin-babelsubs/main/manifest.json`, then
+*Catalog → BabelSubs → Install* and restart Jellyfin. The **Automatic subtitles (BabelSubs)…** menu item copies
+the address and opens that page; if it is not installed yet, the app also shows the tip once, after the first
+start.
+
 ## Usage
 
 Click the icon:

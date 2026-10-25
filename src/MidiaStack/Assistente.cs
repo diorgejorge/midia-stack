@@ -226,6 +226,7 @@ internal sealed class Assistente : Form
         DiasDeSeed = (int)_dias.Value,
         MinimoSeeds = (int)_seeds.Value,
         DownloadsSimultaneos = (int)_simultaneos.Value,
+        DicaBabelSubsMostrada = Resultado.DicaBabelSubsMostrada,
     };
 
     private void Concluir()

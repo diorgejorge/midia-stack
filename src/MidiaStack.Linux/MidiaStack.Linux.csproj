@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Versão de terminal para Linux (Raspberry Pi, mini PC, servidor). Reaproveita o configurador do app de
+    Windows (mesmos arquivos); só a interface muda: assistente e menu no terminal em vez da bandeja.
+    Publicar: dotnet publish src/MidiaStack.Linux -c Release -r linux-x64 (ou linux-arm64) -o publish-linux
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>midia-stack</AssemblyName>
+    <RootNamespace>MidiaStack</RootNamespace>
+    <Version>1.4.0</Version>
+    <PublishSingleFile>true</PublishSingleFile>
+    <SelfContained>true</SelfContained>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <!-- Sem ICU: roda em Raspberry Pi OS / Debian mínimos; o idioma vem de LANG (ver Textos.cs). -->
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\MidiaStack\Ajustes.cs" Link="Compartilhado\Ajustes.cs" />
+    <Compile Include="..\MidiaStack\Configurador.cs" Link="Compartilhado\Configurador.cs" />
+    <Compile Include="..\MidiaStack\Docker.cs" Link="Compartilhado\Docker.cs" />
+    <Compile Include="..\MidiaStack\Textos.cs" Link="Compartilhado\Textos.cs" />
+    <EmbeddedResource Include="..\..\docker-compose.yml" LogicalName="docker-compose.yml" />
+    <EmbeddedResource Include="..\..\linux\docker-compose.override.yml" LogicalName="docker-compose.override.yml" />
+  </ItemGroup>
+
+</Project>

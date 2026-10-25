@@ -126,7 +126,25 @@ Sonarr 和 Radarr 仍然无需密码登录（白名单 IP）。
 
 ## Linux（树莓派、迷你主机、服务器）
 
-`MidiaStack.exe` 仅适用于 Windows。在 Linux 上，同一套程序直接用 Docker Compose 运行 —— 在常开设备上会随开机自动启动。镜像提供 ARM64 版本（树莓派 4/5）。
+在常开设备上，程序会随开机自动启动。支持 x64 和 ARM64（树莓派 4/5）。
+
+### 一条命令安装（推荐）
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/diorgejorge/midia-stack/main/linux/instalar.sh | bash
+```
+
+它会按处理器下载对应的 `midia-stack` 程序到 `~/midia-stack`，并在终端中打开与 Windows 相同的向导：文件夹、下载、做种、Jellyfin 和语言（跟随 `LANG`）。如果未安装 Docker，会提示安装（需要 `sudo` 密码）。然后像 `.exe` 一样启动所有程序并自动连接 —— 包括文件所有者（PUID/PGID）和 `host.docker.internal`。最后会显示可从局域网其他设备打开的地址以及 qBittorrent 密码。
+
+之后，运行 `midia-stack` 会打开菜单；也可以直接：
+
+```bash
+midia-stack up
+```
+
+其他命令：`down`、`status`、`password`、`setup`、`update`（也支持葡萄牙语：`subir`、`parar`、`senha`、`configurar`、`atualizar`）。只能由你完成的步骤与[首次配置步骤](#首次配置步骤)相同，用设备的 IP 打开各地址即可。
+
+### 不使用该程序（仅 Docker Compose）
 
 **1. Docker**（官方脚本；之后注销并重新登录）：
 
@@ -205,7 +223,13 @@ docker compose pull && docker compose up -d
 dotnet publish src/MidiaStack -c Release -o publish
 ```
 
-`publish\MidiaStack.exe` 是自包含的（单个文件，内置 .NET）。
+`publish\MidiaStack.exe` 是自包含的（单个文件，内置 .NET）。Linux 版本（终端，相同的配置器）：
+
+```bash
+dotnet publish src/MidiaStack.Linux -c Release -r linux-arm64 -o publish-linux
+```
+
+（或 `-r linux-x64`）。
 
 ## 许可证
 

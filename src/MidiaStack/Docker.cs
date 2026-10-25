@@ -2,7 +2,10 @@ using System.Diagnostics;
 
 namespace MidiaStack;
 
-/// <summary>Conversa com o Docker Desktop e com o docker compose da pasta do app.</summary>
+/// <summary>
+/// Conversa com o Docker e com o docker compose da pasta do app. No Windows é o Docker Desktop (abre e fecha
+/// junto com a pilha); no Linux é o serviço do Docker Engine, que fica sempre rodando.
+/// </summary>
 internal sealed class Docker(string pastaCompose)
 {
     private const string DesktopExe = @"C:\Program Files\Docker\Docker\Docker Desktop.exe";
@@ -10,13 +13,24 @@ internal sealed class Docker(string pastaCompose)
 
     public string PastaCompose { get; } = pastaCompose;
 
-    public static bool DesktopInstalado => File.Exists(DesktopExe);
+    /// <summary>
+    /// Linux logo depois de instalar o Docker: o usuário só entra no grupo "docker" na próxima sessão, então
+    /// até lá os comandos vão por sudo (a senha é pedida no terminal).
+    /// </summary>
+    private bool _usarSudo;
+
+    public static bool DesktopInstalado => OperatingSystem.IsWindows() ? File.Exists(DesktopExe) : NoPath("docker");
 
     public bool Instalado => DesktopInstalado;
 
+    private static bool NoPath(string programa) =>
+        (Environment.GetEnvironmentVariable("PATH") ?? "")
+            .Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries)
+            .Any(d => File.Exists(Path.Combine(d, programa)));
+
     /// <summary>
     /// Abre um terminal visível com o instalador oficial pelo winget: o usuário acompanha e aprova o pedido
-    /// de administrador do Windows.
+    /// de administrador do Windows. (No Linux a instalação é feita pelo programa de terminal.)
     /// </summary>
     public static void InstalarDesktop()
     {
@@ -29,13 +43,20 @@ internal sealed class Docker(string pastaCompose)
         { UseShellExecute = true });
     }
 
-    public bool DesktopAberto => Process.GetProcessesByName("Docker Desktop").Length > 0;
+    /// <summary>No Linux não há Desktop: o motor é um serviço (ver AbrirDesktop).</summary>
+    public bool DesktopAberto => !OperatingSystem.IsWindows() || Process.GetProcessesByName("Docker Desktop").Length > 0;
 
     // O instalador põe o docker.exe no PATH, mas um app aberto antes da instalação não enxerga o PATH novo.
-    private static string Cli => File.Exists(CliPadrao) ? CliPadrao : "docker";
+    private static string Cli => OperatingSystem.IsWindows() && File.Exists(CliPadrao) ? CliPadrao : "docker";
 
-    public void AbrirDesktop() =>
-        Process.Start(new ProcessStartInfo(DesktopExe) { UseShellExecute = true });
+    /// <summary>Windows: abre o Docker Desktop. Linux: liga o serviço do Docker, se estiver parado.</summary>
+    public void AbrirDesktop()
+    {
+        if (OperatingSystem.IsWindows())
+            Process.Start(new ProcessStartInfo(DesktopExe) { UseShellExecute = true });
+        else
+            Process.Start(new ProcessStartInfo("sudo", "systemctl start docker") { UseShellExecute = false })?.WaitForExit();
+    }
 
     /// <summary>Espera o motor do Docker responder (o Desktop leva de 20 s a 1 min para subir).</summary>
     public async Task<bool> EsperarMotorAsync(TimeSpan limite, CancellationToken ct = default)
@@ -43,8 +64,16 @@ internal sealed class Docker(string pastaCompose)
         var fim = DateTime.UtcNow + limite;
         while (DateTime.UtcNow < fim)
         {
-            var (codigo, _) = await RodarAsync("info --format {{.ServerVersion}}", ct);
+            var (codigo, saida) = await RodarAsync("info --format {{.ServerVersion}}", ct);
             if (codigo == 0) return true;
+            // Linux: usuário ainda fora do grupo "docker" — passa a usar sudo e tenta de novo na hora.
+            if (!OperatingSystem.IsWindows() && !_usarSudo && saida.Contains("permission denied", StringComparison.OrdinalIgnoreCase))
+            {
+                _usarSudo = true;
+                continue;
+            }
+            if (!OperatingSystem.IsWindows() && saida.Contains("Cannot connect", StringComparison.OrdinalIgnoreCase))
+                AbrirDesktop();
             await Task.Delay(3000, ct);
         }
         return false;
@@ -65,9 +94,10 @@ internal sealed class Docker(string pastaCompose)
     public Task<(int Codigo, string Saida)> ExecAsync(string container, string args, bool registrar = true) =>
         RodarAsync($"exec {container} {args}", registrar: registrar);
 
-    /// <summary>Fecha o Docker Desktop para devolver a memória da VM do WSL.</summary>
+    /// <summary>Fecha o Docker Desktop para devolver a memória da VM do WSL (só Windows).</summary>
     public async Task FecharDesktopAsync()
     {
+        if (!OperatingSystem.IsWindows()) return;
         // "docker desktop stop" existe nas versões novas do Desktop; nas antigas, encerra o processo.
         var (codigo, _) = await RodarAsync("desktop stop");
         if (codigo == 0) return;
@@ -96,19 +126,22 @@ internal sealed class Docker(string pastaCompose)
 
     private async Task<(int Codigo, string Saida)> RodarAsync(string args, CancellationToken ct = default, bool registrar = true)
     {
-        var psi = new ProcessStartInfo(Cli, args)
+        var psi = _usarSudo
+            ? new ProcessStartInfo("sudo", "docker " + args)
+            : new ProcessStartInfo(Cli, args);
+        psi.WorkingDirectory = PastaCompose;
+        psi.CreateNoWindow = true;
+        psi.UseShellExecute = false;
+        psi.RedirectStandardOutput = true;
+        psi.RedirectStandardError = true;
+        if (OperatingSystem.IsWindows())
         {
-            WorkingDirectory = PastaCompose,
-            CreateNoWindow = true,
-            UseShellExecute = false,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-        };
-        // O docker chama auxiliares (docker-credential-desktop) pelo PATH; garante a pasta deles mesmo com PATH antigo.
-        var bin = Path.GetDirectoryName(CliPadrao)!;
-        var path = psi.Environment["PATH"] ?? "";
-        if (!path.Contains(bin, StringComparison.OrdinalIgnoreCase))
-            psi.Environment["PATH"] = bin + ";" + path;
+            // O docker chama auxiliares (docker-credential-desktop) pelo PATH; garante a pasta deles mesmo com PATH antigo.
+            var bin = Path.GetDirectoryName(CliPadrao)!;
+            var path = psi.Environment["PATH"] ?? "";
+            if (!path.Contains(bin, StringComparison.OrdinalIgnoreCase))
+                psi.Environment["PATH"] = bin + ";" + path;
+        }
         try
         {
             using var p = Process.Start(psi)!;

@@ -1,0 +1,3 @@
+# Scripts de Linux precisam de fim de linha LF, mesmo editados no Windows.
+*.sh text eol=lf
+linux/* text eol=lf

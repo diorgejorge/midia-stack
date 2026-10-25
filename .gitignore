@@ -10,3 +10,4 @@ bin/
 obj/
 bin-publish/
 publish/
+publish-linux/

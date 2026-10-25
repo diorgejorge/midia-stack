@@ -1,6 +1,7 @@
 using System.Reflection;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace MidiaStack;
 
@@ -16,7 +17,9 @@ internal sealed class Ajustes
     public string Idioma { get; set; } = "";
 
     /// <summary>Pasta com as bibliotecas do Jellyfin; vira /data dentro dos containers.</summary>
-    public string PastaMidia { get; set; } = @"C:\home\jellyfin";
+    public string PastaMidia { get; set; } = OperatingSystem.IsWindows()
+        ? @"C:\home\jellyfin"
+        : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "midia");
     public string SubpastaSeries { get; set; } = "series";
     public string SubpastaFilmes { get; set; } = "filmes";
     public string SubpastaDownloads { get; set; } = "downloads";
@@ -41,10 +44,12 @@ internal sealed class Ajustes
     public bool JellyfinAplicado { get; set; }
 
     /// <summary>Jellyfin no mesmo PC: os containers chegam nele por host.docker.internal.</summary>
+    [JsonIgnore]
     public bool JellyfinLocal =>
         Uri.TryCreate(JellyfinUrl, UriKind.Absolute, out var u) && (u.IsLoopback || u.Host == "host.docker.internal");
 
     /// <summary>Endereço do Jellyfin visto de dentro dos containers.</summary>
+    [JsonIgnore]
     public Uri? JellyfinParaContainers
     {
         get
@@ -54,14 +59,14 @@ internal sealed class Ajustes
         }
     }
 
-    public string PastaSeries => Path.Combine(PastaMidia, SubpastaSeries);
-    public string PastaFilmes => Path.Combine(PastaMidia, SubpastaFilmes);
-    public string PastaDownloads => Path.Combine(PastaMidia, SubpastaDownloads);
+    [JsonIgnore] public string PastaSeries => Path.Combine(PastaMidia, SubpastaSeries);
+    [JsonIgnore] public string PastaFilmes => Path.Combine(PastaMidia, SubpastaFilmes);
+    [JsonIgnore] public string PastaDownloads => Path.Combine(PastaMidia, SubpastaDownloads);
 
     // Os mesmos caminhos vistos de dentro dos containers.
-    public string DataSeries => "/data/" + SubpastaSeries;
-    public string DataFilmes => "/data/" + SubpastaFilmes;
-    public string DataDownloads => "/data/" + SubpastaDownloads;
+    [JsonIgnore] public string DataSeries => "/data/" + SubpastaSeries;
+    [JsonIgnore] public string DataFilmes => "/data/" + SubpastaFilmes;
+    [JsonIgnore] public string DataDownloads => "/data/" + SubpastaDownloads;
 
     private static readonly JsonSerializerOptions Json = new() { WriteIndented = true };
 
@@ -72,6 +77,8 @@ internal sealed class Ajustes
     private static string FusoDoWindows()
     {
         var id = TimeZoneInfo.Local.Id;
+        // No Linux o id já é IANA (ex.: America/Sao_Paulo).
+        if (!OperatingSystem.IsWindows()) return id.Contains('/') ? id : "America/Sao_Paulo";
         var regiao = System.Globalization.RegionInfo.CurrentRegion.TwoLetterISORegionName;
         if (TimeZoneInfo.TryConvertWindowsIdToIanaId(id, regiao, out var iana)) return iana;
         return TimeZoneInfo.TryConvertWindowsIdToIanaId(id, out iana) ? iana : "America/Sao_Paulo";
@@ -118,6 +125,38 @@ internal sealed class Ajustes
 
         // O compose lê as variáveis do .env da mesma pasta. Barras normais: o Docker aceita "C:/..." no Windows.
         var env = $"PASTA_MIDIA={PastaMidia.Replace('\\', '/')}\nTZ={FusoHorario}\n";
+
+        // Linux: override com usuário dos arquivos, host.docker.internal e reinício automático.
+        if (!OperatingSystem.IsWindows())
+        {
+            using var over = Assembly.GetExecutingAssembly().GetManifestResourceStream("docker-compose.override.yml");
+            if (over != null)
+                File.WriteAllText(Path.Combine(pastaApp, "docker-compose.override.yml"), new StreamReader(over).ReadToEnd(), new UTF8Encoding(false));
+            env += $"PUID={IdUsuario("-u")}\nPGID={IdUsuario("-g")}\n";
+            // Cria as pastas de configuração com o usuário como dono; se o Docker criar, ficam do root e o
+            // Seerr (que não troca de usuário sozinho como as imagens linuxserver) não consegue gravar.
+            foreach (var servico in new[] { "qbittorrent", "prowlarr", "sonarr", "radarr", "seerr" })
+                Directory.CreateDirectory(Path.Combine(pastaApp, "config", servico));
+        }
         File.WriteAllText(Path.Combine(pastaApp, ".env"), env, new UTF8Encoding(false));
     }
+
+    /// <summary>Linux: uid/gid de quem roda o app (dono da pasta de mídia), pelo comando "id".</summary>
+    private static string IdUsuario(string opcao)
+    {
+        try
+        {
+            using var p = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("id", opcao)
+            { RedirectStandardOutput = true, UseShellExecute = false })!;
+            var saida = p.StandardOutput.ReadToEnd().Trim();
+            p.WaitForExit();
+            return int.TryParse(saida, out _) ? saida : "1000";
+        }
+        catch { return "1000"; }
+    }
+
+    /// <summary>A pasta de mídia como o Jellyfin (no mesmo computador) a vê, terminada em separador.</summary>
+    [JsonIgnore]
+    public string PastaMidiaParaJellyfin =>
+        OperatingSystem.IsWindows() ? PastaMidia.TrimEnd('\\') + "\\" : PastaMidia.TrimEnd('/') + "/";
 }

@@ -26,7 +26,12 @@ internal static class T
 
     public static string DoSistema()
     {
-        var nome = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
+        // Linux (com globalização invariante, sem ICU): o idioma vem das variáveis LANGUAGE/LC_ALL/LANG.
+        var nome = OperatingSystem.IsWindows()
+            ? CultureInfo.CurrentUICulture.TwoLetterISOLanguageName
+            : new[] { "LANGUAGE", "LC_ALL", "LANG" }
+                .Select(Environment.GetEnvironmentVariable)
+                .FirstOrDefault(v => !string.IsNullOrEmpty(v) && v != "C" && v != "POSIX")?[..2] ?? "en";
         return nome switch { "pt" => Portugues, "zh" => Chines, _ => Ingles };
     }
 

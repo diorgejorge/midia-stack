@@ -148,8 +148,31 @@ Force the language when opening: `MidiaStack.exe --idioma pt|en|zh`.
 
 ## Linux (Raspberry Pi, mini PC, server)
 
-`MidiaStack.exe` is Windows-only. On Linux the same stack runs straight with Docker Compose — on an always-on
-device it starts by itself at boot. The images have ARM64 builds (Raspberry Pi 4/5).
+On an always-on device the stack starts by itself at boot. Works on x64 and ARM64 (Raspberry Pi 4/5).
+
+### With one command (recommended)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/diorgejorge/midia-stack/main/linux/instalar.sh | bash
+```
+
+Downloads the right `midia-stack` program for the processor into `~/midia-stack` and opens the same wizard as
+on Windows, in the terminal: folders, downloads, seeders, Jellyfin and language (follows `LANG`). If Docker is
+not installed, it offers to install it (asks for the `sudo` password). Then it starts everything and connects
+the programs on its own, like the `.exe` — including file owner (PUID/PGID) and `host.docker.internal`. At the
+end it shows the addresses to open from another device on the network and the qBittorrent password.
+
+Afterwards, `midia-stack` opens a menu; or directly:
+
+```bash
+midia-stack up
+```
+
+Other commands: `down`, `status`, `password`, `setup`, `update` (also in Portuguese: `subir`, `parar`,
+`senha`, `configurar`, `atualizar`). The steps only you can do are the same as in the
+[step by step](#first-time-setup-step-by-step), opening the addresses by the device's IP.
+
+### Without the program (Docker Compose only)
 
 **1. Docker** (official script; then log out and back in):
 
@@ -233,7 +256,14 @@ Requires the .NET 10 SDK.
 dotnet publish src/MidiaStack -c Release -o publish
 ```
 
-`publish\MidiaStack.exe` is self-contained (a single file with .NET inside).
+`publish\MidiaStack.exe` is self-contained (a single file with .NET inside). The Linux version (terminal,
+same configurator):
+
+```bash
+dotnet publish src/MidiaStack.Linux -c Release -r linux-arm64 -o publish-linux
+```
+
+(or `-r linux-x64`).
 
 ## License
 

@@ -37,6 +37,8 @@ services:
       - "host.docker.internal:host-gateway"
 
   seerr:
+    # Mesmo usuário dos outros: a pasta config/seerr é do usuário, não do root.
+    user: "${PUID:-1000}:${PGID:-1000}"
     restart: unless-stopped
     extra_hosts:
       - "host.docker.internal:host-gateway"

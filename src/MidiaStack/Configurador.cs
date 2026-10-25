@@ -480,7 +480,7 @@ internal sealed class Configurador(Docker docker, Ajustes ajustes, Action<string
         if (ajustes.JellyfinLocal)
         {
             DefinirCampo(conexao, "mapFrom", "/data/");
-            DefinirCampo(conexao, "mapTo", ajustes.PastaMidia.TrimEnd('\\') + "\\");
+            DefinirCampo(conexao, "mapTo", ajustes.PastaMidiaParaJellyfin);
         }
         // "onDownload" ↔ "supportsOnDownload".
         foreach (var gatilho in GatilhosJellyfin)

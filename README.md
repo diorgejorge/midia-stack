@@ -148,8 +148,31 @@ Forçar o idioma ao abrir: `MidiaStack.exe --idioma pt|en|zh`.
 
 ## Linux (Raspberry Pi, mini PC, servidor)
 
-O `MidiaStack.exe` é só para Windows. No Linux a mesma pilha roda direto com Docker Compose — num aparelho
-sempre ligado, sobe sozinha quando ele liga. As imagens têm versão ARM64 (Raspberry Pi 4/5).
+Num aparelho sempre ligado, a pilha sobe sozinha quando ele liga. Funciona em x64 e ARM64 (Raspberry Pi 4/5).
+
+### Com um comando (recomendado)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/diorgejorge/midia-stack/main/linux/instalar.sh | bash
+```
+
+Baixa o programa `midia-stack` certo para o processador em `~/midia-stack` e abre o mesmo assistente do
+Windows, no terminal: pastas, downloads, seeds, Jellyfin e idioma (segue o `LANG`). Se o Docker não estiver
+instalado, oferece instalar (pede a senha do `sudo`). Depois sobe tudo e liga os programas sozinho, como o
+`.exe` — inclusive usuário dos arquivos (PUID/PGID) e `host.docker.internal`. No fim mostra os endereços para
+abrir de outro aparelho da rede e a senha do qBittorrent.
+
+Depois, `midia-stack` abre um menu; ou direto:
+
+```bash
+midia-stack subir
+```
+
+Outros comandos: `parar`, `status`, `senha`, `configurar`, `atualizar` (também em inglês: `up`, `down`,
+`password`, `setup`, `update`). Os passos que só você faz são os mesmos do
+[passo a passo](#primeira-configuração-passo-a-passo), abrindo os endereços pelo IP do aparelho.
+
+### Sem o programa (só Docker Compose)
 
 **1. Docker** (script oficial; depois saia e entre de novo na sessão):
 
@@ -234,7 +257,14 @@ Requer o SDK do .NET 10.
 dotnet publish src/MidiaStack -c Release -o publish
 ```
 
-O `publish\MidiaStack.exe` é autocontido (um arquivo só, com o .NET dentro).
+O `publish\MidiaStack.exe` é autocontido (um arquivo só, com o .NET dentro). A versão de Linux (terminal,
+mesmo configurador):
+
+```bash
+dotnet publish src/MidiaStack.Linux -c Release -r linux-arm64 -o publish-linux
+```
+
+(ou `-r linux-x64`).
 
 ## Licença
 

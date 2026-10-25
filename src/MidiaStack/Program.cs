@@ -6,11 +6,14 @@ internal static class Program
     private static int Main(string[] args)
     {
         var pastaApp = AcharPastaApp();
+        var salvos = Ajustes.Carregar(pastaApp);
+        // "--idioma en|pt|zh" força o idioma (útil na primeira execução, antes de haver escolha salva).
+        var forcado = args.SkipWhile(a => a != "--idioma").Skip(1).FirstOrDefault();
+        T.Definir(forcado ?? salvos?.Idioma);
 
         // "MidiaStack.exe --subir": sobe e configura sem interface (o resultado vai para o midia-stack.log).
         if (args.Contains("--subir"))
         {
-            var salvos = Ajustes.Carregar(pastaApp);
             if (salvos == null)
             {
                 Log.Escrever("FALHA: sem midia-stack.json; abra o MidiaStack.exe uma vez para responder o assistente.");
@@ -27,24 +30,26 @@ internal static class Program
         using var mutex = new Mutex(true, "MidiaStack-instancia-unica", out var primeira);
         if (!primeira)
         {
-            MessageBox.Show("O Mídia Stack já está aberto — procure o ícone perto do relógio.",
-                "Mídia Stack", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show(
+                T.S("O Mídia Stack já está aberto — procure o ícone perto do relógio.",
+                    "Media Stack is already running — look for the icon next to the clock.",
+                    "Media Stack 已在运行 — 请查看时钟旁的图标。"),
+                T.App, MessageBoxButtons.OK, MessageBoxIcon.Information);
             return 0;
         }
 
         ApplicationConfiguration.Initialize();
 
         // Primeira execução nesta pasta: assistente de instalação.
-        var ajustes = Ajustes.Carregar(pastaApp);
+        var ajustes = salvos;
         var subirAgora = false;
         if (ajustes == null)
         {
-            using var assistente = new Assistente(new Ajustes(), primeiraVez: true);
-            if (assistente.ShowDialog() != DialogResult.OK) return 0;
-            ajustes = assistente.Resultado;
+            if (Assistente.Abrir(Ajustes.Novos(T.Atual), primeiraVez: true) is not { } resposta) return 0;
+            ajustes = resposta.Ajustes;
             ajustes.Salvar(pastaApp);
             ajustes.PrepararPasta(pastaApp);
-            subirAgora = assistente.SubirAoConcluir;
+            subirAgora = resposta.Subir;
         }
 
         Application.Run(new TrayApp(pastaApp, ajustes, subirAgora));

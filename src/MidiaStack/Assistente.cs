@@ -3,9 +3,11 @@ namespace MidiaStack;
 /// <summary>
 /// Assistente da primeira execução (e "Configurações…" no menu): pergunta onde ficam as bibliotecas e as
 /// regras de download, confere o Docker Desktop e devolve os ajustes. Numa máquina nova basta responder e subir.
+/// Trocar o idioma fecha com DialogResult.Retry e o chamador reabre já traduzido (Abrir faz isso).
 /// </summary>
 internal sealed class Assistente : Form
 {
+    private readonly ComboBox _idioma = new() { DropDownStyle = ComboBoxStyle.DropDownList, Width = 160 };
     private readonly TextBox _pasta = new() { Width = 330 };
     private readonly TextBox _series = new() { Width = 120 };
     private readonly TextBox _filmes = new() { Width = 120 };
@@ -13,35 +15,77 @@ internal sealed class Assistente : Form
     private readonly TextBox _fuso = new() { Width = 200 };
     private readonly NumericUpDown _dias = new() { Minimum = 0, Maximum = 365, Width = 70 };
     private readonly NumericUpDown _seeds = new() { Minimum = 0, Maximum = 1000, Width = 70 };
-    private readonly NumericUpDown _simultaneos = new() { Minimum = 1, Maximum = 50, Width = 70 };
-    private readonly CheckBox _subir = new() { Text = "Subir tudo ao concluir", AutoSize = true, Checked = true };
+    private readonly NumericUpDown _simultaneos = new() { Minimum = 0, Maximum = 50, Width = 70 };
+    private readonly CheckBox _subir = new() { AutoSize = true, Checked = true };
     private readonly Label _docker = new() { AutoSize = true };
-    private readonly Button _instalarDocker = new() { Text = "Instalar Docker Desktop", AutoSize = true };
+    private readonly Button _instalarDocker = new() { AutoSize = true };
 
     public Ajustes Resultado { get; private set; }
     public bool SubirAoConcluir => _subir.Checked;
 
-    public Assistente(Ajustes atuais, bool primeiraVez)
+    /// <summary>Mostra o assistente (reabrindo se o idioma mudar). Null = cancelado.</summary>
+    public static (Ajustes Ajustes, bool Subir)? Abrir(Ajustes atuais, bool primeiraVez, IWin32Window? dono = null)
+    {
+        var ajustes = atuais;
+        var subir = true;
+        while (true)
+        {
+            T.Definir(ajustes.Idioma);
+            using var dlg = new Assistente(ajustes, primeiraVez, subir);
+            var r = dono == null ? dlg.ShowDialog() : dlg.ShowDialog(dono);
+            ajustes = dlg.Resultado;
+            subir = dlg.SubirAoConcluir;
+            if (r == DialogResult.Retry) continue;
+            if (r != DialogResult.OK)
+            {
+                T.Definir(atuais.Idioma);
+                return null;
+            }
+            return (ajustes, subir);
+        }
+    }
+
+    private Assistente(Ajustes atuais, bool primeiraVez, bool subir)
     {
         Resultado = atuais;
-        Text = primeiraVez ? "Mídia Stack — instalação" : "Mídia Stack — configurações";
+        Text = primeiraVez
+            ? T.S("Mídia Stack — instalação", "Media Stack — setup", "Media Stack — 安装")
+            : T.S("Mídia Stack — configurações", "Media Stack — settings", "Media Stack — 设置");
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = MinimizeBox = false;
         StartPosition = FormStartPosition.CenterScreen;
         AutoSize = true;
         AutoSizeMode = AutoSizeMode.GrowAndShrink;
         Padding = new Padding(16);
-        Font = new Font("Segoe UI", 9.5f);
+        Font = new Font(T.Atual == T.Chines ? "Microsoft YaHei UI" : "Segoe UI", 9.5f);
+
+        foreach (var (_, nome) in T.Idiomas) _idioma.Items.Add(nome);
+        _idioma.SelectedIndex = Array.FindIndex(T.Idiomas, i => i.Codigo == T.Atual);
+        _idioma.SelectedIndexChanged += (_, _) =>
+        {
+            var novo = T.Idiomas[_idioma.SelectedIndex].Codigo;
+            Resultado = LerCampos();
+            // Subpastas ainda com o nome padrão do idioma anterior acompanham a troca; editadas ficam como estão.
+            var (seriesAntes, filmesAntes) = Ajustes.SubpastasPadrao(T.Atual);
+            var (seriesNovo, filmesNovo) = Ajustes.SubpastasPadrao(novo);
+            if (Resultado.SubpastaSeries == seriesAntes) Resultado.SubpastaSeries = seriesNovo;
+            if (Resultado.SubpastaFilmes == filmesAntes) Resultado.SubpastaFilmes = filmesNovo;
+            Resultado.Idioma = novo;
+            DialogResult = DialogResult.Retry;
+        };
 
         _pasta.Text = atuais.PastaMidia;
         _series.Text = atuais.SubpastaSeries;
         _filmes.Text = atuais.SubpastaFilmes;
         _downloads.Text = atuais.SubpastaDownloads;
         _fuso.Text = atuais.FusoHorario;
-        _dias.Value = atuais.DiasDeSeed;
-        _seeds.Value = atuais.MinimoSeeds;
-        _simultaneos.Value = atuais.DownloadsSimultaneos;
+        _dias.Value = Math.Clamp(atuais.DiasDeSeed, 0, 365);
+        _seeds.Value = Math.Clamp(atuais.MinimoSeeds, 0, 1000);
+        _simultaneos.Value = Math.Clamp(atuais.DownloadsSimultaneos, 0, 50);
+        _subir.Text = T.S("Subir tudo ao concluir", "Start everything when done", "完成后全部启动");
+        _subir.Checked = subir;
         _subir.Visible = primeiraVez;
+        _instalarDocker.Text = T.S("Instalar Docker Desktop", "Install Docker Desktop", "安装 Docker Desktop");
 
         var grade = new TableLayoutPanel { ColumnCount = 2, AutoSize = true, Dock = DockStyle.Fill };
         grade.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
@@ -59,45 +103,68 @@ internal sealed class Assistente : Form
             grade.SetColumnSpan(l, 2);
         }
 
+        Linha(T.S("Idioma", "Language", "语言"), _idioma);
+
         if (primeiraVez)
         {
             var intro = new Label
             {
-                Text = "Responda uma vez; depois é só usar o ícone perto do relógio.\n" +
-                       "Os programas rodam no Docker e guardam tudo na pasta deste .exe.",
+                Text = T.S(
+                    "Responda uma vez; depois é só usar o ícone perto do relógio.\n" +
+                    "Os programas rodam no Docker e guardam tudo na pasta deste .exe.",
+                    "Answer once; after that just use the icon next to the clock.\n" +
+                    "The programs run in Docker and keep everything in this .exe's folder.",
+                    "只需回答一次，之后使用时钟旁的图标即可。\n" +
+                    "程序运行在 Docker 中，所有数据保存在本 .exe 所在的文件夹。"),
                 AutoSize = true,
-                Margin = new Padding(0, 0, 0, 6),
+                Margin = new Padding(0, 10, 0, 6),
             };
             grade.Controls.Add(intro);
             grade.SetColumnSpan(intro, 2);
         }
 
-        Titulo("Pastas (as mesmas bibliotecas do Jellyfin)");
-        var procurar = new Button { Text = "Procurar…", AutoSize = true };
+        Titulo(T.S("Pastas (as mesmas bibliotecas do Jellyfin)", "Folders (the same Jellyfin libraries)", "文件夹（与 Jellyfin 媒体库相同）"));
+        var procurar = new Button { Text = T.S("Procurar…", "Browse…", "浏览…"), AutoSize = true };
         procurar.Click += (_, _) =>
         {
-            using var dlg = new FolderBrowserDialog { SelectedPath = _pasta.Text, Description = "Pasta com as bibliotecas de mídia" };
+            using var dlg = new FolderBrowserDialog
+            {
+                SelectedPath = _pasta.Text,
+                Description = T.S("Pasta com as bibliotecas de mídia", "Folder with the media libraries", "存放媒体库的文件夹"),
+            };
             if (dlg.ShowDialog(this) == DialogResult.OK) _pasta.Text = dlg.SelectedPath;
         };
-        Linha("Pasta de mídia", Fluxo(_pasta, procurar));
-        Linha("Subpasta de séries", _series);
-        Linha("Subpasta de filmes", _filmes);
-        Linha("Subpasta de downloads", _downloads);
+        Linha(T.S("Pasta de mídia", "Media folder", "媒体文件夹"), Fluxo(_pasta, procurar));
+        Linha(T.S("Subpasta de séries", "TV shows subfolder", "剧集子文件夹"), _series);
+        Linha(T.S("Subpasta de filmes", "Movies subfolder", "电影子文件夹"), _filmes);
+        Linha(T.S("Subpasta de downloads", "Downloads subfolder", "下载子文件夹"), _downloads);
 
-        Titulo("Downloads");
-        Linha("Downloads ao mesmo tempo", _simultaneos);
-        Linha("Mínimo de seeds", Fluxo(_seeds, Dica("torrents com menos são recusados")));
-        Linha("Dias de seed", Fluxo(_dias, Dica("depois disso o torrent sai da lista")));
-        Linha("Fuso horário", _fuso);
+        Titulo(T.S("Downloads", "Downloads", "下载"));
+        Linha(T.S("Downloads ao mesmo tempo", "Simultaneous downloads", "同时下载数"),
+            Fluxo(_simultaneos, Dica(T.S("0 = sem limite", "0 = unlimited", "0 = 不限制"))));
+        Linha(T.S("Mínimo de seeds", "Minimum seeders", "最少做种数"),
+            Fluxo(_seeds, Dica(T.S("torrents com menos são recusados · 0 = sem mínimo",
+                                   "torrents with fewer are rejected · 0 = no minimum",
+                                   "低于此数的种子会被拒绝 · 0 = 不限制"))));
+        Linha(T.S("Dias de seed", "Seeding days", "做种天数"),
+            Fluxo(_dias, Dica(T.S("depois disso o torrent sai da lista · 0 = para sempre",
+                                  "then the torrent is removed from the list · 0 = forever",
+                                  "之后种子会从列表中移除 · 0 = 永久做种"))));
+        Linha(T.S("Fuso horário", "Time zone", "时区"), _fuso);
 
         Titulo("Docker Desktop");
         _instalarDocker.Click += (_, _) => InstalarDocker();
-        Linha("Situação", Fluxo(_docker, _instalarDocker));
+        Linha(T.S("Situação", "Status", "状态"), Fluxo(_docker, _instalarDocker));
         AtualizarDocker();
         Activated += (_, _) => AtualizarDocker();
 
-        var ok = new Button { Text = primeiraVez ? "Concluir" : "Salvar", AutoSize = true, DialogResult = DialogResult.None };
-        var cancelar = new Button { Text = "Cancelar", AutoSize = true, DialogResult = DialogResult.Cancel };
+        var ok = new Button
+        {
+            Text = primeiraVez ? T.S("Concluir", "Finish", "完成") : T.S("Salvar", "Save", "保存"),
+            AutoSize = true,
+            DialogResult = DialogResult.None,
+        };
+        var cancelar = new Button { Text = T.S("Cancelar", "Cancel", "取消"), AutoSize = true, DialogResult = DialogResult.Cancel };
         ok.Click += (_, _) => Concluir();
         var botoes = new FlowLayoutPanel { FlowDirection = FlowDirection.RightToLeft, AutoSize = true, Dock = DockStyle.Fill, Margin = new Padding(0, 16, 0, 0) };
         botoes.Controls.AddRange([cancelar, ok, _subir]);
@@ -122,7 +189,11 @@ internal sealed class Assistente : Form
     private void AtualizarDocker()
     {
         var instalado = Docker.DesktopInstalado;
-        _docker.Text = instalado ? "instalado ✓" : "não instalado — necessário para rodar os programas";
+        _docker.Text = instalado
+            ? T.S("instalado ✓", "installed ✓", "已安装 ✓")
+            : T.S("não instalado — necessário para rodar os programas",
+                  "not installed — required to run the programs",
+                  "未安装 — 运行这些程序需要它");
         _docker.ForeColor = instalado ? Color.SeaGreen : Color.Firebrick;
         _instalarDocker.Visible = !instalado;
     }
@@ -130,42 +201,61 @@ internal sealed class Assistente : Form
     private void InstalarDocker()
     {
         var r = MessageBox.Show(this,
-            "Vai abrir uma janela de terminal com o instalador oficial (winget install Docker.DockerDesktop).\n\n" +
-            "O Windows pede permissão de administrador e, no fim, provavelmente um reinício. " +
-            "Depois de reiniciar, abra o Docker Desktop uma vez para aceitar os termos e volte a abrir o Mídia Stack.",
-            "Instalar Docker Desktop", MessageBoxButtons.OKCancel, MessageBoxIcon.Information);
+            T.S("Vai abrir uma janela de terminal com o instalador oficial (winget install Docker.DockerDesktop).\n\n" +
+                "O Windows pede permissão de administrador e, no fim, provavelmente um reinício. " +
+                "Depois de reiniciar, abra o Docker Desktop uma vez para aceitar os termos e volte a abrir o Mídia Stack.",
+                "A terminal window will open with the official installer (winget install Docker.DockerDesktop).\n\n" +
+                "Windows will ask for administrator permission and, at the end, probably a restart. " +
+                "After restarting, open Docker Desktop once to accept its terms, then open Media Stack again.",
+                "将打开一个终端窗口运行官方安装程序（winget install Docker.DockerDesktop）。\n\n" +
+                "Windows 会请求管理员权限，结束时可能需要重启。" +
+                "重启后，请先打开一次 Docker Desktop 接受条款，然后再打开 Media Stack。"),
+            T.S("Instalar Docker Desktop", "Install Docker Desktop", "安装 Docker Desktop"),
+            MessageBoxButtons.OKCancel, MessageBoxIcon.Information);
         if (r == DialogResult.OK) Docker.InstalarDesktop();
     }
 
+    private Ajustes LerCampos() => new()
+    {
+        Idioma = T.Atual,
+        PastaMidia = _pasta.Text.Trim().TrimEnd('\\'),
+        SubpastaSeries = _series.Text.Trim(),
+        SubpastaFilmes = _filmes.Text.Trim(),
+        SubpastaDownloads = _downloads.Text.Trim(),
+        FusoHorario = _fuso.Text.Trim(),
+        DiasDeSeed = (int)_dias.Value,
+        MinimoSeeds = (int)_seeds.Value,
+        DownloadsSimultaneos = (int)_simultaneos.Value,
+    };
+
     private void Concluir()
     {
-        var nomes = new[] { _series.Text, _filmes.Text, _downloads.Text }.Select(n => n.Trim()).ToArray();
+        var a = LerCampos();
+        var nomes = new[] { a.SubpastaSeries, a.SubpastaFilmes, a.SubpastaDownloads };
         string? erro = null;
-        if (string.IsNullOrWhiteSpace(_pasta.Text) || !Path.IsPathFullyQualified(_pasta.Text.Trim()))
-            erro = "Escolha a pasta de mídia (um caminho completo, como C:\\midia).";
+        if (a.PastaMidia.Length == 0 || !Path.IsPathFullyQualified(a.PastaMidia))
+            erro = T.S("Escolha a pasta de mídia (um caminho completo, como C:\\midia).",
+                       "Choose the media folder (a full path, such as C:\\media).",
+                       "请选择媒体文件夹（完整路径，例如 C:\\media）。");
         else if (nomes.Any(n => n.Length == 0 || n.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0))
-            erro = "As subpastas precisam de um nome simples, sem barras.";
+            erro = T.S("As subpastas precisam de um nome simples, sem barras.",
+                       "Subfolders need a simple name, without slashes.",
+                       "子文件夹需要简单的名称，不能包含斜杠。");
         else if (nomes.Distinct(StringComparer.OrdinalIgnoreCase).Count() < 3)
-            erro = "Séries, filmes e downloads precisam ser subpastas diferentes.";
-        else if (string.IsNullOrWhiteSpace(_fuso.Text))
-            erro = "Informe o fuso horário (ex.: America/Sao_Paulo).";
+            erro = T.S("Séries, filmes e downloads precisam ser subpastas diferentes.",
+                       "TV shows, movies and downloads must be different subfolders.",
+                       "剧集、电影和下载必须是不同的子文件夹。");
+        else if (a.FusoHorario.Length == 0)
+            erro = T.S("Informe o fuso horário (ex.: America/Sao_Paulo).",
+                       "Enter the time zone (e.g. America/New_York).",
+                       "请输入时区（例如 Asia/Shanghai）。");
         if (erro != null)
         {
             MessageBox.Show(this, erro, Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
 
-        Resultado = new Ajustes
-        {
-            PastaMidia = _pasta.Text.Trim().TrimEnd('\\'),
-            SubpastaSeries = nomes[0],
-            SubpastaFilmes = nomes[1],
-            SubpastaDownloads = nomes[2],
-            FusoHorario = _fuso.Text.Trim(),
-            DiasDeSeed = (int)_dias.Value,
-            MinimoSeeds = (int)_seeds.Value,
-            DownloadsSimultaneos = (int)_simultaneos.Value,
-        };
+        Resultado = a;
         DialogResult = DialogResult.OK;
     }
 }

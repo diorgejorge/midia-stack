@@ -18,10 +18,16 @@ internal sealed class Docker(string pastaCompose)
     /// Abre um terminal visível com o instalador oficial pelo winget: o usuário acompanha e aprova o pedido
     /// de administrador do Windows.
     /// </summary>
-    public static void InstalarDesktop() =>
+    public static void InstalarDesktop()
+    {
+        var fim = T.S("Pronto. Reinicie o Windows, abra o Docker Desktop uma vez e depois o Midia Stack.",
+                      "Done. Restart Windows, open Docker Desktop once, then Media Stack.",
+                      "完成。请重启 Windows，打开一次 Docker Desktop，然后再打开 Media Stack。");
+        // chcp 65001: o terminal mostra acentos e chinês corretamente.
         Process.Start(new ProcessStartInfo("cmd.exe",
-            "/k winget install -e --id Docker.DockerDesktop && echo. && echo Pronto. Reinicie o Windows, abra o Docker Desktop uma vez e depois o Midia Stack.")
+            $"/k chcp 65001 >nul && winget install -e --id Docker.DockerDesktop && echo. && echo {fim}")
         { UseShellExecute = true });
+    }
 
     public bool DesktopAberto => Process.GetProcessesByName("Docker Desktop").Length > 0;
 

@@ -12,12 +12,15 @@ internal sealed class Ajustes
 {
     public const string NomeArquivo = "midia-stack.json";
 
+    /// <summary>"pt", "en" ou "zh"; vazio = idioma do Windows.</summary>
+    public string Idioma { get; set; } = "";
+
     /// <summary>Pasta com as bibliotecas do Jellyfin; vira /data dentro dos containers.</summary>
     public string PastaMidia { get; set; } = @"C:\home\jellyfin";
     public string SubpastaSeries { get; set; } = "series";
     public string SubpastaFilmes { get; set; } = "filmes";
     public string SubpastaDownloads { get; set; } = "downloads";
-    public string FusoHorario { get; set; } = "America/Sao_Paulo";
+    public string FusoHorario { get; set; } = FusoDoWindows();
     public int DiasDeSeed { get; set; } = 7;
     public int MinimoSeeds { get; set; } = 10;
     public int DownloadsSimultaneos { get; set; } = 8;
@@ -32,6 +35,29 @@ internal sealed class Ajustes
     public string DataDownloads => "/data/" + SubpastaDownloads;
 
     private static readonly JsonSerializerOptions Json = new() { WriteIndented = true };
+
+    /// <summary>
+    /// Fuso do Windows no formato que os containers entendem (IANA). Com a região do Windows, para cair numa
+    /// cidade do próprio país (ex.: UTC-3 no Brasil vira America/Fortaleza e não America/Cayenne).
+    /// </summary>
+    private static string FusoDoWindows()
+    {
+        var id = TimeZoneInfo.Local.Id;
+        var regiao = System.Globalization.RegionInfo.CurrentRegion.TwoLetterISORegionName;
+        if (TimeZoneInfo.TryConvertWindowsIdToIanaId(id, regiao, out var iana)) return iana;
+        return TimeZoneInfo.TryConvertWindowsIdToIanaId(id, out iana) ? iana : "America/Sao_Paulo";
+    }
+
+    /// <summary>Nomes padrão das subpastas no idioma da interface.</summary>
+    public static (string Series, string Filmes) SubpastasPadrao(string idioma) =>
+        idioma == T.Portugues ? ("series", "filmes") : ("tv", "movies");
+
+    /// <summary>Ajustes iniciais de uma instalação nova, no idioma dado.</summary>
+    public static Ajustes Novos(string idioma)
+    {
+        var (series, filmes) = SubpastasPadrao(idioma);
+        return new Ajustes { Idioma = idioma, SubpastaSeries = series, SubpastaFilmes = filmes };
+    }
 
     public static string Arquivo(string pastaApp) => Path.Combine(pastaApp, NomeArquivo);
 

@@ -1,5 +1,7 @@
 # Mídia Stack
 
+**Português** · [English](README.en.md) · [中文](README.zh-CN.md)
+
 Um ícone perto do relógio do Windows que liga e desliga, com um clique, uma pilha de programas em Docker
 para acompanhar séries e filmes da sua biblioteca do **Jellyfin**:
 
@@ -20,7 +22,9 @@ Desligado, nada fica consumindo memória: o app também fecha o Docker Desktop.
 2. Abra o `MidiaStack.exe`. Na primeira vez aparece o **assistente de instalação**:
    - **Pasta de mídia**: a mesma onde ficam as bibliotecas do Jellyfin (ex.: `C:\home\jellyfin`), e os
      nomes das subpastas de séries, filmes e downloads (são criadas se não existirem);
-   - **Downloads ao mesmo tempo**, **mínimo de seeds** e **dias de seed**;
+   - **Idioma** da interface: português, inglês ou chinês (o padrão segue o Windows);
+   - **Downloads ao mesmo tempo**, **mínimo de seeds** e **dias de seed** (0 = sem limite em qualquer um;
+     com 0 dias o torrent fica em seed para sempre e não sai da lista sozinho);
    - **Docker Desktop**: se não estiver instalado, o botão instala pelo `winget` (pede administrador e,
      no fim, um reinício; abra o Docker Desktop uma vez para aceitar os termos).
 3. Clique **Concluir**. Ele sobe tudo e liga os programas entre si sozinho.
@@ -65,6 +69,7 @@ A cada subida ele confere e corrige só o que falta:
 - *Allowed Hosts* dos programas, se preenchido, inclui `localhost` e o nome do container.
 
 Sem interface: `MidiaStack.exe --subir` (o resultado vai para o `midia-stack.log`).
+Forçar o idioma ao abrir: `MidiaStack.exe --idioma pt|en|zh`.
 
 ## Arquivos na pasta do app
 

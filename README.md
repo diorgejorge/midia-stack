@@ -31,13 +31,61 @@ Desligado, nada fica consumindo memória: o app também fecha o Docker Desktop.
      no fim, um reinício; abra o Docker Desktop uma vez para aceitar os termos).
 3. Clique **Concluir**. Ele sobe tudo e liga os programas entre si sozinho.
 
-Depois, duas coisas que só você pode fazer, uma vez:
+## Primeira configuração, passo a passo
 
-- **Indexadores**: no Prowlarr, *Indexers → Add Indexer* (use **Test** antes de salvar). Eles vão para o
-  Sonarr e o Radarr sozinhos.
-- **Seerr**: abra http://localhost:5055, escolha **Jellyfin**, endereço `host.docker.internal`, porta
-  `8096` (sem `http://`, sem `localhost`), e entre com seu usuário do Jellyfin. Depois clique
-  **Conferir configuração** no menu do ícone: ele liga o Seerr ao Sonarr e ao Radarr.
+Depois do assistente, o que só você pode fazer (uma vez; senhas e chaves ficam com você):
+
+### 1. Indexadores (Prowlarr — http://localhost:9696)
+
+*Indexers → Add Indexer*, filtre por categoria **TV** e/ou **Movies**, clique no indexador, **Test** e,
+se der ✓, **Save**. Eles vão para o Sonarr e o Radarr sozinhos (filmes só para o Radarr). Para dar
+preferência a um indexador, mude **Indexer Priority** (1 = maior; o padrão é 25) — ele só desempata
+lançamentos de mesma qualidade.
+
+### 2. Seerr (http://localhost:5055)
+
+1. Escolha **Jellyfin**.
+2. **Jellyfin URL**: `host.docker.internal` — **sem** `http://` (o prefixo já aparece ao lado do campo) e
+   **sem** `localhost` (dentro do Docker, `localhost` é o próprio Seerr). **Port**: `8096`.
+3. E-mail, usuário e senha do Jellyfin → **Sign In** → **Sync Libraries**, marque séries e filmes →
+   **Continue** → **Finish Setup** (a etapa de serviços pode ser pulada).
+4. No ícone do Mídia Stack: **Conferir configuração** — liga o Seerr ao Sonarr e ao Radarr.
+
+O Seerr cria no Jellyfin uma chave de API com o nome **Seerr**: não apague.
+
+### 3. Chave de API do Jellyfin para o Mídia Stack (opcional, recomendado)
+
+Com ela, o que termina de baixar aparece no Jellyfin na hora.
+
+1. No Jellyfin (http://localhost:8096), como administrador: **Painel → Avançado → Chaves de API → + Nova
+   chave de API**, nome `Mídia Stack` (atalho: http://localhost:8096/web/#/dashboard/keys).
+2. No ícone do Mídia Stack: **Configurações…** → **Jellyfin** → cole em **Chave de API** → **Testar**
+   (*conectado ✓*) → **Salvar**.
+
+Use uma chave só para o Mídia Stack (não reaproveite a do Seerr). Trocar a chave em Configurações regrava
+a conexão no Sonarr e no Radarr sozinho.
+
+### 4. Senha fixa do qBittorrent (http://localhost:8080)
+
+1. No ícone: **Senha do qBittorrent** (copia a senha temporária desta sessão).
+2. Entre com o usuário `admin` e cole a senha.
+3. *Ferramentas → Opções → Web UI → Autenticação*: digite a senha nova → **Salvar**.
+
+O Sonarr e o Radarr continuam entrando sem senha (IPs liberados).
+
+## Problemas comuns
+
+| Sintoma | Causa e solução |
+|---|---|
+| Login no Seerr falha mesmo com a senha certa | O endereço ficou `http://http://…` ou `localhost`. Use só `host.docker.internal`, porta `8096`. |
+| **Testar** do Jellyfin falha | Chave errada ou Jellyfin desligado. Confira em *Painel → Chaves de API*. |
+| Nada baixa / fila vazia | Sem indexadores: veja *System → Status* no Sonarr/Radarr. Cadastre indexadores no Prowlarr. |
+| Busca acha resultados mas recusa todos | Perfil de qualidade (ex.: "HD-720p" recusa 1080p), mínimo de seeds ou idioma. A busca interativa (ícone de pessoa no episódio) mostra o motivo de cada recusa. |
+| Indexador falha no **Test** | Site bloqueado pela sua conexão ou atrás de proteção anti-robô (Cloudflare). Use outro. |
+| Download lento | Poucos seeds conectados ou muitos torrents na fila. Ajuste "Downloads ao mesmo tempo" em Configurações. |
+| Duas legendas aparecem juntas | Desligue a **legenda secundária** no player do Jellyfin; ou o arquivo marca o inglês como padrão. |
+| Torrent concluído não sai da lista | É o seed: sai depois dos "Dias de seed" (só contam com o Mídia Stack ligado; 0 = nunca sai). |
+| Windows avisa "O Windows protegeu o computador" ao abrir o .exe | O .exe não é assinado digitalmente: *Mais informações → Executar assim mesmo*. |
 
 ## Sugestão: legendas automáticas com o BabelSubs
 

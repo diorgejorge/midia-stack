@@ -26,10 +26,53 @@
    - **Docker Desktop**：如果未安装，按钮会通过 `winget` 安装（需要管理员权限，结束时可能需要重启；请先打开一次 Docker Desktop 接受条款）。
 3. 点击**完成**。它会启动所有程序并自动把它们互相连接。
 
-之后只有两件事需要你自己做一次：
+## 首次配置步骤
 
-- **索引器**：在 Prowlarr 中，*Indexers → Add Indexer*（保存前先点 **Test**）。它们会自动同步到 Sonarr 和 Radarr。
-- **Seerr**：打开 http://localhost:5055，选择 **Jellyfin**，地址填 `host.docker.internal`，端口 `8096`（不要加 `http://`，不要用 `localhost`），用你的 Jellyfin 账号登录。然后在图标菜单中点击**检查配置**：它会把 Seerr 连接到 Sonarr 和 Radarr。
+向导完成后，以下事项只能由你自己完成（一次即可；密码和密钥由你保管）：
+
+### 1. 索引器（Prowlarr — http://localhost:9696）
+
+*Indexers → Add Indexer*，按 **TV** 和/或 **Movies** 分类筛选，点击索引器，**Test**，显示 ✓ 后 **Save**。它们会自动同步到 Sonarr 和 Radarr（只有电影的索引器只同步到 Radarr）。如需优先使用某个索引器，修改 **Indexer Priority**（1 = 最高；默认 25）——它只在质量相同的资源之间起决定作用。
+
+### 2. Seerr（http://localhost:5055）
+
+1. 选择 **Jellyfin**。
+2. **Jellyfin URL**：`host.docker.internal` —— **不要**加 `http://`（输入框旁已显示该前缀），也**不要**用 `localhost`（在 Docker 内，`localhost` 指的是 Seerr 自己）。**Port**：`8096`。
+3. 填写 Jellyfin 的邮箱、用户名和密码 → **Sign In** → **Sync Libraries**，勾选剧集和电影 → **Continue** → **Finish Setup**（服务步骤可以跳过）。
+4. 在 Media Stack 图标中：**检查配置** —— 把 Seerr 连接到 Sonarr 和 Radarr。
+
+Seerr 会在 Jellyfin 中创建一个名为 **Seerr** 的 API 密钥：请不要删除。
+
+### 3. 为 Media Stack 创建 Jellyfin API 密钥（可选，推荐）
+
+有了它，下载完成的内容会立即出现在 Jellyfin 中。
+
+1. 在 Jellyfin（http://localhost:8096）中以管理员身份：**控制台 → 高级 → API 密钥 → + 新建 API 密钥**，命名为 `Media Stack`（快捷方式：http://localhost:8096/web/#/dashboard/keys）。
+2. 在 Media Stack 图标中：**设置…** → **Jellyfin** → 粘贴到 **API 密钥** → **测试**（*已连接 ✓*）→ **保存**。
+
+请为 Media Stack 单独使用一个密钥（不要复用 Seerr 的）。在设置中更换密钥后，会自动重写 Sonarr 和 Radarr 中的连接。
+
+### 4. qBittorrent 固定密码（http://localhost:8080）
+
+1. 在图标中：**qBittorrent 密码**（复制本次会话的临时密码）。
+2. 用用户 `admin` 登录并粘贴密码。
+3. *工具 → 选项 → Web UI → 验证*：输入新密码 → **保存**。
+
+Sonarr 和 Radarr 仍然无需密码登录（白名单 IP）。
+
+## 常见问题
+
+| 现象 | 原因与解决 |
+|---|---|
+| 密码正确但无法登录 Seerr | 地址变成了 `http://http://…` 或 `localhost`。只填 `host.docker.internal`，端口 `8096`。 |
+| Jellyfin **测试**失败 | 密钥错误或 Jellyfin 未运行。请在 *控制台 → API 密钥* 中检查。 |
+| 没有任何下载 / 队列为空 | 没有索引器：查看 Sonarr/Radarr 的 *System → Status*。在 Prowlarr 中添加索引器。 |
+| 搜索到结果却全部被拒绝 | 质量配置（例如 "HD-720p" 会拒绝 1080p）、最少做种数或语言。交互式搜索（剧集旁的人形图标）会显示每个结果被拒绝的原因。 |
+| 索引器 **Test** 失败 | 网站被你的网络屏蔽，或有反机器人保护（Cloudflare）。请换一个。 |
+| 下载很慢 | 连接的做种者太少，或队列中种子太多。在设置中调整“同时下载数”。 |
+| 同时出现两条字幕 | 在 Jellyfin 播放器中关闭**次要字幕**；或者文件把英文字幕设为默认。 |
+| 已完成的种子没有从列表移除 | 这是在做种：超过“做种天数”后才会移除（只在 Media Stack 运行时计时；0 = 永不移除）。 |
+| 打开 .exe 时 Windows 提示“Windows 已保护你的电脑” | 该 .exe 没有数字签名：*更多信息 → 仍要运行*。 |
 
 ## 推荐：用 BabelSubs 自动获取字幕
 

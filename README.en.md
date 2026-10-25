@@ -31,13 +31,61 @@ When stopped, nothing keeps using memory: the app also closes Docker Desktop.
      administrator rights and, at the end, a restart; open Docker Desktop once to accept its terms).
 3. Click **Finish**. It starts everything and connects the programs to each other on its own.
 
-After that, two things only you can do, once:
+## First-time setup, step by step
 
-- **Indexers**: in Prowlarr, *Indexers → Add Indexer* (use **Test** before saving). They reach Sonarr and
-  Radarr automatically.
-- **Seerr**: open http://localhost:5055, choose **Jellyfin**, address `host.docker.internal`, port `8096`
-  (no `http://`, no `localhost`), and sign in with your Jellyfin user. Then click **Check configuration**
-  in the icon menu: it connects Seerr to Sonarr and Radarr.
+After the wizard, what only you can do (once; passwords and keys stay with you):
+
+### 1. Indexers (Prowlarr — http://localhost:9696)
+
+*Indexers → Add Indexer*, filter by the **TV** and/or **Movies** category, click the indexer, **Test** and,
+if it shows ✓, **Save**. They reach Sonarr and Radarr automatically (movie-only ones go to Radarr only).
+To prefer an indexer, change **Indexer Priority** (1 = highest; default is 25) — it only breaks ties
+between releases of the same quality.
+
+### 2. Seerr (http://localhost:5055)
+
+1. Choose **Jellyfin**.
+2. **Jellyfin URL**: `host.docker.internal` — **without** `http://` (the prefix is already shown next to the
+   field) and **not** `localhost` (inside Docker, `localhost` is Seerr itself). **Port**: `8096`.
+3. Jellyfin e-mail, user and password → **Sign In** → **Sync Libraries**, tick shows and movies →
+   **Continue** → **Finish Setup** (the services step can be skipped).
+4. In the Media Stack icon: **Check configuration** — connects Seerr to Sonarr and Radarr.
+
+Seerr creates a Jellyfin API key named **Seerr**: do not delete it.
+
+### 3. Jellyfin API key for Media Stack (optional, recommended)
+
+With it, finished downloads show up in Jellyfin right away.
+
+1. In Jellyfin (http://localhost:8096), as administrator: **Dashboard → Advanced → API Keys → + New API
+   key**, name it `Media Stack` (shortcut: http://localhost:8096/web/#/dashboard/keys).
+2. In the Media Stack icon: **Settings…** → **Jellyfin** → paste into **API key** → **Test**
+   (*connected ✓*) → **Save**.
+
+Use a key just for Media Stack (don't reuse Seerr's). Changing the key in Settings rewrites the connection
+in Sonarr and Radarr automatically.
+
+### 4. Permanent qBittorrent password (http://localhost:8080)
+
+1. In the icon: **qBittorrent password** (copies this session's temporary password).
+2. Log in with user `admin` and paste the password.
+3. *Tools → Options → Web UI → Authentication*: type the new password → **Save**.
+
+Sonarr and Radarr keep logging in without a password (whitelisted IPs).
+
+## Troubleshooting
+
+| Symptom | Cause and fix |
+|---|---|
+| Seerr sign-in fails even with the right password | The address became `http://http://…` or `localhost`. Use just `host.docker.internal`, port `8096`. |
+| Jellyfin **Test** fails | Wrong key or Jellyfin is off. Check *Dashboard → API Keys*. |
+| Nothing downloads / empty queue | No indexers: see *System → Status* in Sonarr/Radarr. Add indexers in Prowlarr. |
+| Search finds results but rejects all | Quality profile (e.g. "HD-720p" rejects 1080p), minimum seeders or language. Interactive search (person icon on the episode) shows why each one was rejected. |
+| Indexer fails its **Test** | Site blocked by your connection or behind anti-bot protection (Cloudflare). Use another one. |
+| Slow downloads | Few connected seeders or many torrents queued. Adjust "Simultaneous downloads" in Settings. |
+| Two subtitles show at once | Turn off the **secondary subtitle** in the Jellyfin player; or the file marks English as default. |
+| A finished torrent stays in the list | That's seeding: it leaves after the "Seeding days" (only counted while Media Stack is on; 0 = never). |
+| Windows says "Windows protected your PC" when opening the .exe | The .exe is not digitally signed: *More info → Run anyway*. |
 
 ## Suggestion: automatic subtitles with BabelSubs
 

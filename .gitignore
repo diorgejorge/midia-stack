@@ -11,3 +11,5 @@ obj/
 bin-publish/
 publish/
 publish-linux/
+
+radarr_lang_priority_state.json

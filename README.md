@@ -109,7 +109,7 @@ O script em [`scripts/radarr-lang-priority`](scripts/radarr-lang-priority) faz o
 py scripts\radarr-lang-priority\radarr_lang_priority.py setup
 ```
 
-Depois agende o `scripts\radarr-lang-priority\run_search.cmd` (ex.: a cada 6h) para buscar dublado nos filmes
+Depois agende o `scripts\radarr-lang-priority\run_search.cmd` (ex.: uma vez por semana) para buscar dublado nos filmes
 antigos. Detalhes no [README do script](scripts/radarr-lang-priority/README.md).
 
 ## Uso

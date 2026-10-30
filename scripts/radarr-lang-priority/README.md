@@ -26,13 +26,13 @@ py radarr_lang_priority.py setup
 py radarr_lang_priority.py search
 ```
 
-Agendar no Windows a cada 6h (PowerShell):
+Agendar no Windows uma vez por semana (PowerShell):
 
 ```powershell
-Register-ScheduledTask -TaskName 'Radarr PT-BR search' -Action (New-ScheduledTaskAction -Execute "$PWD\run_search.cmd") -Trigger (New-ScheduledTaskTrigger -Once -At (Get-Date).AddHours(6) -RepetitionInterval (New-TimeSpan -Hours 6)) -Settings (New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries)
+Register-ScheduledTask -TaskName 'Radarr PT-BR search' -Action (New-ScheduledTaskAction -Execute "$PWD\run_search.cmd") -Trigger (New-ScheduledTaskTrigger -Weekly -DaysOfWeek Sunday -At 3am) -Settings (New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries)
 ```
 
-No Linux, cron: `0 */6 * * * cd /caminho/scripts/radarr-lang-priority && python3 radarr_lang_priority.py search`.
+No Linux, cron: `0 3 * * 0 cd /caminho/scripts/radarr-lang-priority && python3 radarr_lang_priority.py search`.
 
 ## Variáveis
 

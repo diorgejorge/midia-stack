@@ -85,6 +85,8 @@ services:
     init: true
     environment:
       - TZ=${TZ:-America/Sao_Paulo}
+      # A rede do Docker não tem IPv6 e o Node 22 alterna IPv6/IPv4 com timeout curto: as chamadas ao TMDB falham.
+      - NODE_OPTIONS=--no-network-family-autoselection
     volumes:
       - ./config/seerr:/app/config
     ports:

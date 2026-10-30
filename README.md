@@ -100,6 +100,18 @@ No Jellyfin (conta de administrador): *Painel → Plugins → Repositórios → 
 copia o endereço e abre essa página; se ele ainda não estiver instalado, o app também dá a dica uma vez,
 depois da primeira subida.
 
+## Opcional: preferir áudio dublado (PT-BR) no Radarr
+
+O script em [`scripts/radarr-lang-priority`](scripts/radarr-lang-priority) faz o Radarr preferir releases com
+áudio PT-BR e trocar o arquivo quando um dublado aparecer. Com o stack ligado, na pasta do app:
+
+```
+py scripts\radarr-lang-priority\radarr_lang_priority.py setup
+```
+
+Depois agende o `scripts\radarr-lang-priority\run_search.cmd` (ex.: a cada 6h) para buscar dublado nos filmes
+antigos. Detalhes no [README do script](scripts/radarr-lang-priority/README.md).
+
 ## Uso
 
 Clique no ícone:
